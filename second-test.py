@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue May  9 15:28:07 2023
+Created on Tue May  9 16:22:42 2023
 
-@author: Isaac (copy of his original code)
+@author: Admin
 """
 
 import time
@@ -342,88 +342,147 @@ test_density, test_scale_radius = profile_nfw.NFWProfile.nativeParameters(
 test_virial_radius = test_scale_radius * test_c
 # print(test_density, test_scale_radius, test_virial_radius)
 
-#%% Sigma(R) of multiple offset halos
+#%% Sigma(R) of 1 halo with multiple offsets
 
-multi_lenses = lenses[10:20]
-multi_offsets = []
-
-for lens in multi_lenses:
-    tmp_c = concentration.concentration(
-        M=lens["M_halo"], mdef="200m", z=lens["z"], model="duffy08"
-    )
-    tmp_density, tmp_scale_radius = profile_nfw.NFWProfile.nativeParameters(
-        M=lens["M_halo"], c=tmp_c, z=lens["z"], mdef="200m"
-    )
-    tmp_virial_radius = tmp_scale_radius * tmp_c
-    multi_offsets.append([0.4 * tmp_virial_radius])
-
-# print(multi_offsets)
+test_mass_per_point = 1098372.008822474
+time_start = time.time()
+test_rvals, test_thetavals = sample_nfw(
+    masses=test_lens["M_halo"],
+    redshifts=test_lens["z"],
+    mass_per_point=test_mass_per_point,
+    offsets=[[0, 0]],
+    seeds=[[12345, 44]],
+    cdf_resolution=1000,
+    return_xy=False,
+    verbose=False,
+)
+print(time.time() - time_start)
 
 #%%
 
-multi_mass_per_point = 1098372.008822474
+radius_bins = np.linspace(0, test_virial_radius, 11)  # kpc
+radius_bin_centers = 0.5 * (radius_bins[1:] + radius_bins[:-1])  # just for plotting
+#
+test_profile = profile_nfw.NFWProfile(
+    M=test_lens["M_halo"], c=test_c, z=test_lens["z"], mdef="200m"
+)
+# Temporarily ignore division by zero and overflow warnings
+with np.errstate(divide="ignore", over="ignore"):
+    test_true_encl_mass = (
+        test_profile.surfaceDensity(radius_bins) + test_profile.deltaSigma(radius_bins)
+    ) * (np.pi * radius_bins**2)
+test_true_encl_mass[0] = 0.0
+test_true_encl_mass_annuli = np.diff(test_true_encl_mass)
+test_true_sigmas = test_true_encl_mass_annuli / (
+    np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2)
+)
+#
+test_sigmas = (
+    np.histogram(test_rvals, bins=radius_bins, density=False)[0]
+    * test_mass_per_point
+    / (np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2))
+)  # average surface density within annulus
+mean_sq_rel_err = np.mean(((test_true_sigmas - test_sigmas)/test_true_sigmas) ** 2)
+#
+fig, ax = plt.subplots(dpi=100)
+ax.plot(radius_bin_centers, test_true_sigmas, "-", label="True", zorder=0)
+ax.plot(radius_bin_centers, test_sigmas, "o", alpha=0.5)
+ax.semilogy()
+ax.set_xlabel(r"$R$ [kpc h$^{-1}$]")
+ax.set_ylabel(r"$\Sigma(R)$ [$\rm M_\odot\, kpc^{-2}\, h$]")
+ax.set_title(fr"Mean Squared Relative Error: {mean_sq_rel_err:.2g}")
+plt.show()
+
+#%% same but non-zero offsets
+
+test_mass_per_point = 1098372.008822474
+rng = np.random.default_rng(54830147)
+rng_offsets = [rng.rayleigh(scale=0.4 * test_virial_radius, size=1000)]
+print(rng_offsets)
+
 time_start = time.time()
-multi_rvals, multi_thetavals = sample_nfw(
-    masses=multi_lenses["M_halo"],
-    redshifts=multi_lenses["z"],
-    mass_per_point=multi_mass_per_point,
-    offsets=multi_offsets,
+test_rvals, test_thetavals = sample_nfw(
+    masses=test_lens["M_halo"],
+    redshifts=test_lens["z"],
+    mass_per_point=test_mass_per_point,
+    offsets=rng_offsets,
     seeds=None,
     cdf_resolution=1000,
     return_xy=False,
     verbose=False,
 )
-print(time.time() - time_start, multi_rvals.shape)
-multi_xvals = multi_rvals * np.cos(multi_thetavals)
-multi_yvals = multi_rvals * np.sin(multi_thetavals)
-print(np.mean(multi_xvals), np.mean(multi_yvals))
+print(time.time() - time_start)
+test_xvals = test_rvals * np.cos(test_thetavals)
+test_yvals = test_rvals * np.sin(test_thetavals)
 
 #%%
 
 with plt.rc_context({"axes.grid": False}):
     fig, ax = plt.subplots(dpi=100)
-    img = ax.hexbin(multi_xvals, multi_yvals, gridsize=100, bins="log")
+    img = ax.hexbin(test_xvals, test_yvals, gridsize=100, bins="log")
     ax.plot(0, 0, "r+")
     fig.colorbar(img)
     ax.set_aspect("equal")
-    ax.set_title(f"{len(multi_lenses)} halos")
+    ax.set_title(
+        "1 miscentred halo, where the miscentring follows\n"
+        + "a Rayleigh distribution, realized with 1000 MC offsets"
+    )
+    fig.tight_layout()
     plt.show()
     
 #%%
 
-radius_bins = np.linspace(0, 500, 40)  # kpc
+radius_bins = np.linspace(0, test_virial_radius, 11)  # kpc
 radius_bin_centers = 0.5 * (radius_bins[1:] + radius_bins[:-1])  # just for plotting
-#
-multi_sigmas = (
-    np.histogram(multi_rvals, bins=radius_bins, density=False)[0]
-    * multi_mass_per_point
+
+
+test_profile = profile_nfw.NFWProfile(
+    M=test_lens["M_halo"], c=test_c, z=test_lens["z"], mdef="200m"
+)
+# Temporarily ignore division by zero and overflow warnings
+with np.errstate(divide="ignore", over="ignore"):
+    test_true_encl_mass = (
+        test_profile.surfaceDensity(radius_bins) + test_profile.deltaSigma(radius_bins)
+    ) * (np.pi * radius_bins**2)
+test_true_encl_mass[0] = 0.0
+test_true_encl_mass_annuli = np.diff(test_true_encl_mass)
+test_true_sigmas = test_true_encl_mass_annuli / (
+    np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2)
+)
+
+
+test_sigmas = (
+    np.histogram(test_rvals, bins=radius_bins, density=False)[0]
+    * test_mass_per_point
     / (np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2))
 )  # average surface density within annulus
-#
+
+
 fig, ax = plt.subplots(dpi=100)
-ax.plot(radius_bin_centers, multi_sigmas, "o-")
+ax.plot(radius_bin_centers, test_true_sigmas, "-", label="No miscentring", zorder=0)
+ax.plot(radius_bin_centers, test_sigmas, "o", alpha=0.5)
+ax.legend()
+ax.semilogy()
 ax.set_xlabel(r"$R$ [kpc h$^{-1}$]")
 ax.set_ylabel(r"$\Sigma(R)$ [$\rm M_\odot\, kpc^{-2}\, h$]")
 plt.show()
 
-#%% DeltaSigma of multiple offset halos
+#%%
 
-radius_bins = np.linspace(0, 500, 1000)  # kpc
-
-binned_masses = np.histogram(multi_rvals, bins=radius_bins)[0] * multi_mass_per_point
-# Average surface density of annulus
-multi_sigmas = binned_masses / (np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2))
-# <https://bdiemer.bitbucket.io/colossus/halo_profile_nfw.html#halo.profile_nfw.NFWProfile.deltaSigma>
-integral_vals = []
-integrand_vals = 2 * np.pi * radius_bins[1:] * multi_sigmas
-integrand_vals = np.insert(integrand_vals, 0, 0.0)
-for i in range(multi_sigmas.size):
-    integral_vals.append(simpson(y=integrand_vals[: i + 2], x=radius_bins[: i + 2]))
-integral_vals = np.array(integral_vals)
-multi_dsigmas = integral_vals / (np.pi * radius_bins[1:] ** 2) - multi_sigmas
-
+well_centered_fraction = 0.8
+test_spitzer_correction = (1 - well_centered_fraction) / (2 * np.pi) * test_sigmas
+radius_bin_centers = 0.5 * (radius_bins[1:] + radius_bins[:-1])  # just for plotting
 fig, ax = plt.subplots(dpi=100)
-ax.plot(radius_bins[1:], multi_dsigmas, "s", ms=0.5)
+ax.plot(radius_bin_centers, test_true_sigmas, "s-", label="Uncorrected")
+ax.plot(
+    radius_bin_centers,
+    test_true_sigmas + test_spitzer_correction,
+    "o--",
+    label="Corrected",
+)
+ax.legend()
+ax.semilogy()
+ax.set_xlim(radius_bins[0], radius_bins[-1])
 ax.set_xlabel(r"$R$ [kpc h$^{-1}$]")
-ax.set_ylabel(r"$\Delta\Sigma(R)$ [$\rm M_\odot\, kpc^{-2}\, h$]")
+ax.set_ylabel(r"$\Sigma(R)$ [$\rm M_\odot\, kpc^{-2}\, h$]")
 plt.show()
