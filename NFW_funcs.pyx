@@ -16,8 +16,8 @@ cimport numpy as np
 np.import_array()
 
 # Compile Typing Definitions
-ctypedef np.uint16_t UI16
 ctypedef np.float64_t F64
+
 
 
 @cython.boundscheck(False)
@@ -27,7 +27,7 @@ def sample_nfw(
     np.ndarray[F64, ndim=1] masses,
     np.ndarray[F64, ndim=1] redshifts,
     double mass_per_point,
-    np.ndarray[F64, ndim=2] offsets=0,  # I'm leaving the input checking to the user... Must be scalar or 2D
+    np.ndarray[F64, ndim=2] offsets,  # I'm leaving the input checking to the user... Must be scalar or 2D
     np.ndarray[F64, ndim=1] cs=None,
     np.ndarray[F64, ndim=2] seeds=None,  # I'm leaving the input checking to the user... Must be scalar or 2D
     str concentration_model="duffy08",
@@ -126,21 +126,26 @@ def sample_nfw(
     # Check some inputs. If the user tries moderately hard, they can still break this
     #
     cdef bint is_1d_mass = False
-    cdef list masses_list=[]
-    cdef list redshifts_list=[]
-    cdef list cs_list=[]
+    cdef list masses_list
+    cdef list redshifts_list
+    cdef list cs_list
     cdef list seeds_list=[]
     cdef np.ndarray[F64, ndim=2] orig_seed
+    cdef tuple masses_shape
+    
     if isinstance(masses, Number):
         masses_list = [masses]
         is_1d_mass = True
-    elif len(np.shape(masses)) != 1:
+
+    if len(np.shape(masses)) != 1:
         raise ValueError("`masses` must be a scalar or 1D array_like")
-    cdef tuple masses_shape
-    masses_shape = np.shape(masses_list)  # masses already 1D
+    
+    masses_shape = np.shape(masses)  # masses already 1D
     #
     if isinstance(redshifts, Number):
         redshifts_list = [redshifts]
+    
+    
     if masses_shape != np.shape(redshifts):
         raise ValueError("`masses` and `redshifts` must have the same length")
     #
@@ -150,7 +155,7 @@ def sample_nfw(
     if isinstance(offsets, Number):
         if verbose:
             print("offset is number")
-        offsets = np.full((len(masses_list), 1), offsets, dtype=np.float64)  # 2D array
+        offsets = np.full((len(masses), 1), offsets, dtype=np.float64)  # 2D array
     #
     # leave input checking to the user...
     #
@@ -176,7 +181,7 @@ def sample_nfw(
         if np.shape(cs) != masses_shape:
             raise ValueError("`cs` and `masses` must have the same length")
     else:
-        cs_list = [None] * len(masses_list)
+        cs_list = [None] * len(masses)
     #
     if seeds is None or isinstance(seeds, (int, np.integer)):
         if verbose:
@@ -218,10 +223,12 @@ def sample_nfw(
     #
     # Iterate over halos and generate random points
     #
+    cdef np.ndarray interp_2d_encl_masses
+    
     cdef list random_x_or_r = []
     cdef list random_y_or_theta = []
     for mass, redshift, c, offset_1d, seed_1d in zip(
-        masses_list, redshifts_list, cs_list, offsets, seeds_list
+        masses, redshifts, cs_list, offsets, seeds_list
     ):
         #
         # Define NFW halo object
@@ -230,6 +237,8 @@ def sample_nfw(
             c = concentration.concentration(
                 M=mass, mdef=mdef, z=redshift, model=concentration_model
             )
+            
+        
         halo_profile = profile_nfw.NFWProfile(M=mass, c=c, z=redshift, mdef=mdef)
         central_density, scale_radius = halo_profile.getParameterArray()
         virial_radius = scale_radius * c
@@ -258,7 +267,8 @@ def sample_nfw(
         #
         # Determine number of points to generate for this halo
         #
-        n_points = round(interp_2d_encl_masses[-1] / (mass_per_point * len(offset_1d)))
+        
+        n_points = round(interp_2d_encl_masses[-1:][0] / (mass_per_point * len(offset_1d)))
         if n_points == 0:
             # Not using warning module for now
             print(
@@ -277,7 +287,7 @@ def sample_nfw(
             print("Begin creating 2D NFW CDF interpolator")
         debug_start2 = time.time()
         interp_normed_2d_encl_masses = interp1d(
-            interp_2d_encl_masses / interp_2d_encl_masses[-1],
+            interp_2d_encl_masses / interp_2d_encl_masses[-1:][0],
             interp_radii,
             assume_sorted=True,
         )
