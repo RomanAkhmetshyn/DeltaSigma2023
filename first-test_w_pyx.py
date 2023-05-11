@@ -61,7 +61,7 @@ test_virial_radius = test_scale_radius * test_c
 #%% Sigma(R) of multiple offset halos
 
 multi_lenses = lenses[10:20]
-multi_offsets = []
+multi_offsets =  np.empty([1,1], dtype=float)
 
 for lens in multi_lenses:
     tmp_c = concentration.concentration(
@@ -71,9 +71,10 @@ for lens in multi_lenses:
         M=lens["M_halo"], c=tmp_c, z=lens["z"], mdef="200m"
     )
     tmp_virial_radius = tmp_scale_radius * tmp_c
-    multi_offsets.append([0.4 * tmp_virial_radius])
+    multi_offsets=np.vstack([multi_offsets, [0.4 * tmp_virial_radius]])
 
 # print(multi_offsets)
+multi_offsets=np.delete(multi_offsets, 0,0)
 
 #%%
 
@@ -83,7 +84,7 @@ multi_rvals, multi_thetavals = NFW_funcs.sample_nfw(
     masses=np.array(multi_lenses["M_halo"].data).astype('<f8'),
     redshifts=np.array(multi_lenses["z"].data).astype('<f8'),
     mass_per_point=multi_mass_per_point,
-    offsets=np.array(multi_offsets),
+    offsets=multi_offsets,
     seeds=None,
     cdf_resolution=1000,
     return_xy=False,
