@@ -225,8 +225,8 @@ def sample_nfw(
     #
     cdef np.ndarray interp_2d_encl_masses
     
-    cdef list random_x_or_r = []
-    cdef list random_y_or_theta = []
+    cdef np.ndarray[F64, ndim=1] random_x_or_r =  np.empty(0, dtype=np.float64)
+    cdef np.ndarray[F64, ndim=1] random_y_or_theta = np.empty(0, dtype=np.float64)
     for mass, redshift, c, offset_1d, seed_1d in zip(
         masses, redshifts, cs_list, offsets, seeds_list
     ):
@@ -322,11 +322,11 @@ def sample_nfw(
                 print("Begin extending list")
             debug_start4 = time.time()
             if return_xy:
-                random_x_or_r.extend(random_radii_x)
-                random_y_or_theta.extend(random_radii_y)
+                random_x_or_r=np.concatenate([random_x_or_r, random_radii_x])
+                random_y_or_theta=np.concatenate([random_y_or_theta, random_radii_y])
             else:
-                random_x_or_r.extend(np.sqrt(random_radii_x**2 + random_radii_y**2))
-                random_y_or_theta.extend(np.arctan2(random_radii_y, random_radii_x))
+                random_x_or_r=np.concatenate([random_x_or_r, np.sqrt(random_radii_x**2 + random_radii_y**2)])
+                random_y_or_theta=np.concatenate([random_y_or_theta, np.arctan2(random_radii_y, random_radii_x)])
             if verbose:
                 print("Finished extending list after", time.time() - debug_start4)
                 print()

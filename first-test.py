@@ -206,8 +206,8 @@ def sample_nfw(
     #
     # Iterate over halos and generate random points
     #
-    random_x_or_r = []
-    random_y_or_theta = []
+    random_x_or_r = np.empty(0, dtype=float)
+    random_y_or_theta = np.empty(0, dtype=float)
     for mass, redshift, c, offset_1d, seed_1d in zip(
         masses, redshifts, cs, offsets, seeds
     ):
@@ -303,12 +303,13 @@ def sample_nfw(
                 random_x_or_r.extend(random_radii_x)
                 random_y_or_theta.extend(random_radii_y)
             else:
-                random_x_or_r.extend(np.sqrt(random_radii_x**2 + random_radii_y**2))
-                random_y_or_theta.extend(np.arctan2(random_radii_y, random_radii_x))
+                random_x_or_r=np.concatenate([random_x_or_r, np.sqrt(random_radii_x**2 + random_radii_y**2)])
+                random_y_or_theta=np.concatenate([random_y_or_theta, np.arctan2(random_radii_y, random_radii_x)])
+            
             if verbose:
                 print("Finished extending list after", time.time() - debug_start4)
                 print()
-    return np.array(random_x_or_r), np.array(random_y_or_theta)
+    return random_x_or_r, random_y_or_theta
 
 params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
 cosmology.addCosmology("737", params)
