@@ -371,7 +371,7 @@ multi_rvals, multi_thetavals = sample_nfw(
     seeds=None,
     cdf_resolution=1000,
     return_xy=False,
-    verbose=False,
+    verbose=True,
 )
 print(time.time() - time_start, multi_rvals.shape)
 multi_xvals = multi_rvals * np.cos(multi_thetavals)
