@@ -17,6 +17,7 @@ np.import_array()
 
 # Compile Typing Definitions
 ctypedef np.float64_t F64
+from colossus.cosmology import cosmology
 
 
 
@@ -132,6 +133,10 @@ def sample_nfw(
     cdef list seeds_list=[]
     cdef np.ndarray[F64, ndim=2] orig_seed
     cdef tuple masses_shape
+    
+    cdef dict params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
+    cosmology.addCosmology("737", params)
+    cosmo = cosmology.setCosmology("737")
     
     if isinstance(masses, Number):
         masses_list = [masses]
@@ -330,4 +335,4 @@ def sample_nfw(
             if verbose:
                 print("Finished extending list after", time.time() - debug_start4)
                 print()
-    return np.array(random_x_or_r), np.array(random_y_or_theta)
+    return random_x_or_r, random_y_or_theta
