@@ -60,7 +60,7 @@ test_virial_radius = test_scale_radius * test_c
 
 #%% Sigma(R) of multiple offset halos
 
-multi_lenses = lenses[10:20]
+multi_lenses = lenses[0:10]
 multi_offsets =  np.empty([1,1], dtype=float)
 
 for lens in multi_lenses:
@@ -98,52 +98,55 @@ multi_xvals = multi_rvals * np.cos(multi_thetavals)
 multi_yvals = multi_rvals * np.sin(multi_thetavals)
 print(np.mean(multi_xvals), np.mean(multi_yvals))
 
+plot=False
+if plot ==True:
+
 #%%
 
-with plt.rc_context({"axes.grid": False}):
+    with plt.rc_context({"axes.grid": False}):
+        fig, ax = plt.subplots(dpi=100)
+        img = ax.hexbin(multi_xvals, multi_yvals, gridsize=100, bins="log")
+        ax.plot(0, 0, "r+")
+        fig.colorbar(img)
+        ax.set_aspect("equal")
+        ax.set_title(f"{len(multi_lenses)} halos")
+        plt.show()
+        
+    #%%
+    
+    radius_bins = np.linspace(0, 500, 40)  # kpc
+    radius_bin_centers = 0.5 * (radius_bins[1:] + radius_bins[:-1])  # just for plotting
+    #
+    multi_sigmas = (
+        np.histogram(multi_rvals, bins=radius_bins, density=False)[0]
+        * multi_mass_per_point
+        / (np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2))
+    )  # average surface density within annulus
+    #
     fig, ax = plt.subplots(dpi=100)
-    img = ax.hexbin(multi_xvals, multi_yvals, gridsize=100, bins="log")
-    ax.plot(0, 0, "r+")
-    fig.colorbar(img)
-    ax.set_aspect("equal")
-    ax.set_title(f"{len(multi_lenses)} halos")
+    ax.plot(radius_bin_centers, multi_sigmas, "o-")
+    ax.set_xlabel(r"$R$ [kpc h$^{-1}$]")
+    ax.set_ylabel(r"$\Sigma(R)$ [$\rm M_\odot\, kpc^{-2}\, h$]")
     plt.show()
     
-#%%
-
-radius_bins = np.linspace(0, 500, 40)  # kpc
-radius_bin_centers = 0.5 * (radius_bins[1:] + radius_bins[:-1])  # just for plotting
-#
-multi_sigmas = (
-    np.histogram(multi_rvals, bins=radius_bins, density=False)[0]
-    * multi_mass_per_point
-    / (np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2))
-)  # average surface density within annulus
-#
-fig, ax = plt.subplots(dpi=100)
-ax.plot(radius_bin_centers, multi_sigmas, "o-")
-ax.set_xlabel(r"$R$ [kpc h$^{-1}$]")
-ax.set_ylabel(r"$\Sigma(R)$ [$\rm M_\odot\, kpc^{-2}\, h$]")
-plt.show()
-
-#%% DeltaSigma of multiple offset halos
-
-radius_bins = np.linspace(0, 500, 1000)  # kpc
-
-binned_masses = np.histogram(multi_rvals, bins=radius_bins)[0] * multi_mass_per_point
-# Average surface density of annulus
-multi_sigmas = binned_masses / (np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2))
-# <https://bdiemer.bitbucket.io/colossus/halo_profile_nfw.html#halo.profile_nfw.NFWProfile.deltaSigma>
-integral_vals = []
-integrand_vals = 2 * np.pi * radius_bins[1:] * multi_sigmas
-integrand_vals = np.insert(integrand_vals, 0, 0.0)
-for i in range(multi_sigmas.size):
-    integral_vals.append(simpson(y=integrand_vals[: i + 2], x=radius_bins[: i + 2]))
-integral_vals = np.array(integral_vals)
-multi_dsigmas = integral_vals / (np.pi * radius_bins[1:] ** 2) - multi_sigmas
-
-fig, ax = plt.subplots(dpi=100)
-ax.plot(radius_bins[1:], multi_dsigmas, "s", ms=0.5)
-ax.set_xlabel(r"$R$ [kpc h$^{-1}$]")
-ax.set_ylabel(r"$\Delta\Sigma(R)$ [$\rm M_\odot\, kpc^{-2}\, h$]")
-plt.show()
+    #%% DeltaSigma of multiple offset halos
+    
+    radius_bins = np.linspace(0, 500, 1000)  # kpc
+    
+    binned_masses = np.histogram(multi_rvals, bins=radius_bins)[0] * multi_mass_per_point
+    # Average surface density of annulus
+    multi_sigmas = binned_masses / (np.pi * (radius_bins[1:] ** 2 - radius_bins[:-1] ** 2))
+    # <https://bdiemer.bitbucket.io/colossus/halo_profile_nfw.html#halo.profile_nfw.NFWProfile.deltaSigma>
+    integral_vals = []
+    integrand_vals = 2 * np.pi * radius_bins[1:] * multi_sigmas
+    integrand_vals = np.insert(integrand_vals, 0, 0.0)
+    for i in range(multi_sigmas.size):
+        integral_vals.append(simpson(y=integrand_vals[: i + 2], x=radius_bins[: i + 2]))
+    integral_vals = np.array(integral_vals)
+    multi_dsigmas = integral_vals / (np.pi * radius_bins[1:] ** 2) - multi_sigmas
+    
+    fig, ax = plt.subplots(dpi=100)
+    ax.plot(radius_bins[1:], multi_dsigmas, "s", ms=0.5)
+    ax.set_xlabel(r"$R$ [kpc h$^{-1}$]")
+    ax.set_ylabel(r"$\Delta\Sigma(R)$ [$\rm M_\odot\, kpc^{-2}\, h$]")
+    plt.show()
