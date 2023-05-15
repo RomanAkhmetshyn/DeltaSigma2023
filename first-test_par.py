@@ -124,7 +124,7 @@ if __name__ == '__main__':
     chunk=10
     lense_chunks=[]
     offset_chunks=[]
-    for i in trange(0,len(lenses[0:30]),chunk):
+    for i in trange(0,len(lenses),chunk):
         multi_lenses=lenses[i:i+chunk]
         lense_chunks.append(multi_lenses)
         multi_offsets =  np.empty([1,1], dtype=float)
