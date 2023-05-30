@@ -22,6 +22,7 @@ import NFW_funcs
 import seaborn as sns
 
 import NFW_funcs
+from scipy import interpolate
 
 params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
 cosmology.addCosmology("737", params)
@@ -101,39 +102,62 @@ multi_yvals = multi_rvals * np.sin(multi_thetavals)
 
 radius=np.amax(multi_rvals)
 
+#single example
+# x_coords=[]
+# y_coords=[]
+# for x,y in zip(multi_xvals,multi_yvals):
+#     distance = np.linalg.norm(np.array((x,y)) - np.array((offsets[0]*radius,0)))
+#     if radius - 0.5 <= distance <= radius + 0.5:
+#         x_coords.append(x)
+#         y_coords.append(y)
 
-x_coords=[]
-y_coords=[]
-for x,y in zip(multi_xvals,multi_yvals):
-    distance = np.linalg.norm(np.array((x,y)) - np.array((offsets[0]*radius,0)))
-    if radius - 0.5 <= distance <= radius + 0.5:
-        x_coords.append(x)
-        y_coords.append(y)
+
+#Multiple example
+for offset in offsets:
+    print(offset)
+    distances = []
+    x_coords=[]
+    y_coords=[]
+    for x,y in zip(multi_xvals,multi_yvals):
+        distance = np.linalg.norm(np.array((x,y)) - np.array((offset*radius,0)))
+        if radius - 0.5 <= distance <= radius + 0.5:
+            x_coords.append(x)
+            y_coords.append(y)
+            
+            # for x,y in zip(x_coords, y_coords):
+            #     distance = np.linalg.norm(np.array((x,y)) - np.array((0,0)))
+            #     distances.append(distance)
+                
+    # hist, edges = np.histogram(distances,bins=100)
+
+    # Plot the histogram as a distribution
+    # plt.bar(edges[:-1], hist, width=np.diff(edges), align='edge', color='blue', alpha=0.7)
+    # plt.xlabel("Distance from Plane Center (0,0)")
+    # plt.ylabel("Density")
+    # plt.title(str(offset))
+    # plt.show()
         
 
 
-with plt.rc_context({"axes.grid": False}):
-    fig, ax = plt.subplots(dpi=100)
-    img = ax.hexbin(multi_xvals, multi_yvals, gridsize=100, bins="log")
-    ax.plot(0, 0, "r+")
-    ax.plot(offsets*radius,np.zeros_like(offsets), marker='.', markersize=1, color='red')
-    # for center_x, center_y in zip(offsets*radius, np.zeros_like(offsets)):
-    #     circle = plt.Circle((center_x, center_y), np.amax(multi_rvals), edgecolor='red', facecolor='none')
-    #     ax.add_patch(circle)
-    circle = plt.Circle((offsets[0]*radius, 0), np.amax(multi_rvals), edgecolor='red', facecolor='none')
-    ax.add_patch(circle)
-    ax.scatter(x_coords, y_coords, s=1, c='yellow',zorder=5)
-    ax.set_ylim(-radius, radius)
-    ax.set_xlim(-radius, radius)
-    fig.colorbar(img)
-    ax.set_aspect("equal")
-    # ax.set_title(f"{len(multi_lenses)} halos")
-    plt.show()
+# with plt.rc_context({"axes.grid": False}):
+#     fig, ax = plt.subplots(dpi=100)
+#     img = ax.hexbin(multi_xvals, multi_yvals, gridsize=100, bins="log")
+#     ax.plot(0, 0, "r+")
+#     ax.plot(offsets*radius,np.zeros_like(offsets), marker='.', markersize=1, color='red')
+#     # for center_x, center_y in zip(offsets*radius, np.zeros_like(offsets)):
+#     #     circle = plt.Circle((center_x, center_y), np.amax(multi_rvals), edgecolor='red', facecolor='none')
+#     #     ax.add_patch(circle)
+#     circle = plt.Circle((offsets[0]*radius, 0), np.amax(multi_rvals), edgecolor='red', facecolor='none')
+#     ax.add_patch(circle)
+#     ax.scatter(x_coords, y_coords, s=1, c='yellow',zorder=5)
+#     ax.set_ylim(-radius, radius)
+#     ax.set_xlim(-radius, radius)
+#     fig.colorbar(img)
+#     ax.set_aspect("equal")
+#     # ax.set_title(f"{len(multi_lenses)} halos")
+#     plt.show()
     
-distances = []
-for x,y in zip(x_coords, y_coords):
-    distance = np.linalg.norm(np.array((x,y)) - np.array((0,0)))
-    distances.append(distance)
+
 
 # Create a histogram of distances
 
@@ -145,6 +169,7 @@ for x,y in zip(x_coords, y_coords):
 # plt.ylabel("Density")
 # plt.title("Density Distribution of Overlapping Points")
 # plt.show()
+
 
 
 
