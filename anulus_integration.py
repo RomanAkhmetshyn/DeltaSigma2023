@@ -20,6 +20,7 @@ from scipy.interpolate import interp1d
 import NFW_funcs
 
 import seaborn as sns
+import pandas as pd
 
 import NFW_funcs
 from scipy import interpolate
@@ -28,149 +29,204 @@ params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns
 cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
-#%% Load Tinker catalog as lenses
+#%%
 
-
-# lenses = Table.read("D:/GitHub/summer-research/data/dsigma_measurements/output/example_esd_ShapePipe_clusterDist0.6_randomsTrue_1806950.csv")
-# lenses = Table.read("D:/GitHub/summer-research/data/dr8_redmapper_v6.3.1_members_masked.fits")
-# lenses = Table.read("D:/dr8_run_redmapper_v6.3.1_lgt20_catalog_members.fit")
-lenses = Table.read("./data/Tinker_SDSS.fits")
-# lenses_mask = (
-#         (lenses["R"] >= 0.6)
-#         & (lenses["R"] < 0.9)
-#         & (lenses["ZSPEC"] > -1.0)
-#     )
-# lenses = lenses[lenses_mask]
-
-halo_mass_bin = 12.5
-halo_mass_bins_end = {12.5: 13.0, 13.0: 13.5, 13.5: 14.0, 14.0: np.inf}
-lenses_mask = (
-    (lenses["M_halo"] >= 10**halo_mass_bin)
-    & (lenses["M_halo"] < 10 ** halo_mass_bins_end[halo_mass_bin])
-    & (lenses["id"] == lenses["igrp"])
-)
-lenses = lenses[lenses_mask]
-
-
-
-lense=Table(lenses[0])
-halo_c = concentration.concentration(
-    M=lense["M_halo"], mdef="200m", z=lense["z"], model="duffy08"
-)
-halo_density, halo_scale_radius = profile_nfw.NFWProfile.nativeParameters(
-    M=lense["M_halo"], c=halo_c, z=lense["z"], mdef="200m"
-)
-halo_virial_radius = halo_scale_radius * halo_c
-
-sats = Table.read("D:/GitHub/summer-research/data/dr8_redmapper_v6.3.1_members_masked.fits")
-sats_mask = (
-        (sats["R"] >= 0.6)
-        & (sats["R"] < 0.9)
-        & (sats["ZSPEC"] > -1.0)
+data = Table.read("./data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits")
+data_mask = (
+        (data["R"] >= 0.6)
+        & (data["R"] < 0.9)
+        & (data["ZSPEC"] > -1.0)
     )
-sats = sats[sats_mask]
+data = data[data_mask]
+cdf_resolution=1000
+mass_per_point = 1098372.008822474
 
-offsets=sats["R"]
+mdef="200m"
 
-# plt.hist(offsets, bins=30, edgecolor='black')
+for sat in data[0:1]:
+    
+    c=concentration.concentration(
+        M=sat["M_halo"], mdef="200m", z=sat["Z_halo"], model="duffy08"
+    )
+    halo_profile = profile_nfw.NFWProfile(M=sat["M_halo"], c=c, z=sat["Z_halo"], mdef=mdef)
+
+    central_density, scale_radius = halo_profile.getParameterArray()
+    virial_radius = scale_radius * c
+    #
+    # Determine CDF of projected (2D) NFW enclosed mass
+    #
+    interp_radii = np.linspace(0, virial_radius, cdf_resolution)
+    
+    debug_start = time.time()
+    # Temporarily ignore division by zero and overflow warnings
+    with np.errstate(divide="ignore", over="ignore"):
+        interp_delta_sigmas = halo_profile.deltaSigma(interp_radii)
+        interp_surface_densities = halo_profile.surfaceDensity(interp_radii)
+    # Correct delta sigmas and surface densities at r=0 to be zero
+    interp_delta_sigmas[0] = 0.0
+    interp_surface_densities[0] = 0.0
+    interp_2d_encl_masses = (
+        np.pi * interp_radii**2 * (interp_delta_sigmas + interp_surface_densities)
+    )
+
+    print(
+        "Finished calculating enclosed mass with colossus after",
+        time.time() - debug_start,
+    )
+    #
+    # Determine number of points to generate for this halo
+    #
+
+    n_points = round(interp_2d_encl_masses[-1:][0] / (mass_per_point))
+    print("For each offset, will generate", n_points, "points for this halo")
+    #
+    # Make 1D interpolator for this halo
+    #
+    print("Begin creating 2D NFW CDF interpolator")
+    debug_start2 = time.time()
+    interp_normed_2d_encl_masses = interp1d(
+        interp_2d_encl_masses / interp_2d_encl_masses[-1:][0],
+        interp_radii,
+        assume_sorted=True,
+    )
+
+    print(
+        "Finished creating 2D NFW CDF interpolator after",
+        time.time() - debug_start2,
+    )
+    print()
+
+    #
+    # Generate random points for this halo + offset combination
+    #
+    rng = np.random.default_rng()
+    offset=0
+    offset_angle = rng.uniform(0, 2 * np.pi)
+    offset_x = offset * np.cos(offset_angle)
+    offset_y = offset * np.sin(offset_angle)
+    #
+    random_cdf_yvals = rng.uniform(0, 1, size=n_points)
+    print("Begin interpolation")
+    debug_start3 = time.time()
+    random_radii = interp_normed_2d_encl_masses(random_cdf_yvals)
+    print("Finished interpolation after", time.time() - debug_start3)
+    random_azimuths = rng.uniform(0, 2 * np.pi, size=n_points)
+    random_radii_x = random_radii * np.cos(random_azimuths) + offset_x
+    random_radii_y = random_radii * np.sin(random_azimuths) + offset_y
+    print("Begin extending list")
+    debug_start4 = time.time()
+    #if return_xy:
+
+    #else:
+    random_r=np.array([ np.sqrt(random_radii_x**2 + random_radii_y**2)])
+    random_theta=np.array([ np.arctan2(random_radii_y, random_radii_x)])
+    print("Finished extending list after", time.time() - debug_start4)
+    print()
 
 
-# plt.show()
-multi_offsets =  np.empty([1,1], dtype=float)
-
-multi_offsets=np.vstack([multi_offsets, [0]])
-
-# print(multi_offsets)
-multi_offsets=np.delete(multi_offsets, 0,0)
-
-# multi_mass_per_point = 1098372.008822474
-multi_mass_per_point = 1098372.008822474*10
-time_start = time.time()
-multi_rvals, multi_thetavals = NFW_funcs.sample_nfw(
-    masses=np.array(lense["M_halo"].data).astype('<f8'),
-    redshifts=np.array(lense["z"].data).astype('<f8'),
-    mass_per_point=multi_mass_per_point,
-    offsets=multi_offsets,
-    seeds=None,
-    cdf_resolution=1000,
-    return_xy=False,
-    verbose=True,
-)
-
-multi_xvals = multi_rvals * np.cos(multi_thetavals)
-multi_yvals = multi_rvals * np.sin(multi_thetavals)
-
-radius=np.amax(multi_rvals)
-
-#single example
-# x_coords=[]
-# y_coords=[]
-# for x,y in zip(multi_xvals,multi_yvals):
-#     distance = np.linalg.norm(np.array((x,y)) - np.array((offsets[0]*radius,0)))
-#     if radius - 0.5 <= distance <= radius + 0.5:
-#         x_coords.append(x)
-#         y_coords.append(y)
 
 
-#Multiple example
-for offset in offsets:
-    print(offset)
-    distances = []
-    x_coords=[]
-    y_coords=[]
-    for x,y in zip(multi_xvals,multi_yvals):
-        distance = np.linalg.norm(np.array((x,y)) - np.array((offset*radius,0)))
-        if radius - 0.5 <= distance <= radius + 0.5:
-            x_coords.append(x)
-            y_coords.append(y)
-            
-            # for x,y in zip(x_coords, y_coords):
-            #     distance = np.linalg.norm(np.array((x,y)) - np.array((0,0)))
-            #     distances.append(distance)
-                
-    # hist, edges = np.histogram(distances,bins=100)
 
-    # Plot the histogram as a distribution
-    # plt.bar(edges[:-1], hist, width=np.diff(edges), align='edge', color='blue', alpha=0.7)
-    # plt.xlabel("Distance from Plane Center (0,0)")
-    # plt.ylabel("Density")
-    # plt.title(str(offset))
-    # plt.show()
+    # sat_x = sat['R'] * 100
+    # sat_y = 0
+    # ring_radii = np.linspace(0.1, 1.5, 14+1) * 10
+    
+    # ring_counts = []
+    
+    # for radius in ring_radii:
+    #     count = 0
+    #     for x, y in zip(random_radii_x, random_radii_y):
+    #         distance = np.sqrt((x - sat_x)**2 + (y - sat_y)**2)
+    #         if radius - 0.5 <= distance <= radius + 0.5:
+    #             count += 1
+    #     ring_counts.append(count)
+    
+    # # Create a DataFrame using the ring radii and ring counts
+    # data = {'Ring Radii': ring_radii, 'Point Counts': ring_counts}
+    # df = pd.DataFrame(data)
+    
+    sat_x = sat['R'] * 100
+    sat_y = 0
+    ring_radii = np.linspace(0.1, 1.5, 140+1) * 100
+    S=[np.pi*((r+1)**2-(r-1)**2) for r in ring_radii]
+    # Calculate the distances for all points at once
+    distances = np.sqrt((random_radii_x - sat_x)**2 + (random_radii_y - sat_y)**2)
+    
+    # Create an empty array to store the counts for each ring
+    ring_counts = np.zeros(len(ring_radii), dtype=int)
+    circle_counts = np.zeros(len(ring_radii), dtype=int)
+    
+    # Iterate over each ring radius and count the points within each ring
+    for i in range(len(ring_radii)):
+        mask = np.logical_and(ring_radii[i] - 0.5 <= distances, distances <= ring_radii[i] + 0.5)
+        # ring_counts[i] = np.sum(mask)
+        ring_counts[i] = np.sum(mask)*mass_per_point/S[i]
         
+    for i in range(len(ring_radii)):
+        mask = np.logical_and(0 <= distances, distances <= ring_radii[i] + 0.5)
+        # ring_counts[i] = np.sum(mask)
+        circle_counts[i] = np.sum(mask)*mass_per_point/S[i]
 
+    # Create a DataFrame using the ring radii and ring counts
+    data = {'Ring Radii': ring_radii, 'Delta(R)': ring_counts}
+    df = pd.DataFrame(data)
+    
+    sums=[]
 
-# with plt.rc_context({"axes.grid": False}):
-#     fig, ax = plt.subplots(dpi=100)
-#     img = ax.hexbin(multi_xvals, multi_yvals, gridsize=100, bins="log")
-#     ax.plot(0, 0, "r+")
-#     ax.plot(offsets*radius,np.zeros_like(offsets), marker='.', markersize=1, color='red')
-#     # for center_x, center_y in zip(offsets*radius, np.zeros_like(offsets)):
-#     #     circle = plt.Circle((center_x, center_y), np.amax(multi_rvals), edgecolor='red', facecolor='none')
-#     #     ax.add_patch(circle)
-#     circle = plt.Circle((offsets[0]*radius, 0), np.amax(multi_rvals), edgecolor='red', facecolor='none')
-#     ax.add_patch(circle)
-#     ax.scatter(x_coords, y_coords, s=1, c='yellow',zorder=5)
-#     ax.set_ylim(-radius, radius)
-#     ax.set_xlim(-radius, radius)
-#     fig.colorbar(img)
-#     ax.set_aspect("equal")
-#     # ax.set_title(f"{len(multi_lenses)} halos")
-#     plt.show()
+    for i in range(len(ring_radii)-1,-1,-1):
+        DeltalessR=circle_counts[i]
+        DeltaR=ring_counts[i]
+        sums.append(DeltalessR-DeltaR)
+
+        
     
 
+        
+    # with plt.rc_context({"axes.grid": False}):
+    #     fig, ax = plt.subplots(dpi=100)
+    #     img = ax.hexbin(random_radii_x, random_radii_y, gridsize=100, bins="log")
+    #     ax.plot(0, 0, "r+")
 
-# Create a histogram of distances
+    #     for radius in ring_radii:
+    #         circle = plt.Circle((sat_x, sat_y), radius, edgecolor='red', facecolor='none')
+    #         ax.add_patch(circle)
+        
+    #     # ax.set_ylim(-radius, radius)
+    #     # ax.set_xlim(-radius, radius)
+    #     fig.colorbar(img)
+    #     ax.set_aspect("equal")
+    #     # ax.set_title(f"{len(multi_lenses)} halos")
+    #     plt.show()
+                
+        
+    # with plt.rc_context({"axes.grid": False}):
+    #     fig, ax = plt.subplots(dpi=100)
+    #     img = ax.hexbin(random_radii_x, random_radii_y, gridsize=100, bins="log")
+    #     ax.plot(0, 0, "r+")
+    #     fig.colorbar(img)
+    #     ax.scatter(x_coords, y_coords, s=1, c='yellow',zorder=5)
+    #     ax.set_aspect("equal")
+    #     ax.set_title("1 halos")
+    #     plt.show()
+    
 
-# hist, edges = np.histogram(distances,bins=100)
-
-# # Plot the histogram as a distribution
-# plt.bar(edges[:-1], hist, width=np.diff(edges), align='edge', color='blue', alpha=0.7)
-# plt.xlabel("Distance from Plane Center (0,0)")
-# plt.ylabel("Density")
-# plt.title("Density Distribution of Overlapping Points")
-# plt.show()
-
-
-
+    
+    # distances = np.sqrt((random_radii_x - sat_x)**2 + (random_radii_y - sat_y)**2)
+    # ring_radii = np.linspace(0.1, 1.5, 14+1)
+    # tolerance = 0.05  # Example tolerance threshold
+    # ring_counts = []
+    
+    # for i in range(len(ring_radii)):
+    #     # Calculate the lower and upper boundaries of the tolerance range
+    #     lower_bound = ring_radii[i] - tolerance
+    #     upper_bound = ring_radii[i] + tolerance
+    
+    #     # Count the number of points within the tolerance range for the current ring
+    #     count_within_tolerance = np.sum(
+    #         (distances >= lower_bound) & (distances < upper_bound)
+    #     )
+        
+    #     # Add the count to the ring_counts list
+    #     ring_counts.append(count_within_tolerance)
 
 
