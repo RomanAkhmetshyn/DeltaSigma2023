@@ -148,7 +148,8 @@ for sat in data[0:1]:
     sat_x = sat['R'] * 100
     sat_y = 0
     ring_radii = np.linspace(0.1, 1.5, 140+1) * 100
-    S=[np.pi*((r+1)**2-(r-1)**2) for r in ring_radii]
+    threshold=0.5
+    S=[np.pi*((r+threshold)**2-(r-threshold)**2) for r in ring_radii]
     # Calculate the distances for all points at once
     distances = np.sqrt((random_radii_x - sat_x)**2 + (random_radii_y - sat_y)**2)
     
@@ -158,12 +159,12 @@ for sat in data[0:1]:
     
     # Iterate over each ring radius and count the points within each ring
     for i in range(len(ring_radii)):
-        mask = np.logical_and(ring_radii[i] - 0.5 <= distances, distances <= ring_radii[i] + 0.5)
+        mask = np.logical_and(ring_radii[i] - threshold <= distances, distances <= ring_radii[i] + threshold)
         # ring_counts[i] = np.sum(mask)
         ring_counts[i] = np.sum(mask)*mass_per_point/S[i]
         
     for i in range(len(ring_radii)):
-        mask = np.logical_and(0 <= distances, distances <= ring_radii[i] + 0.5)
+        mask = np.logical_and(0 <= distances, distances <= ring_radii[i] - threshold)
         # ring_counts[i] = np.sum(mask)
         circle_counts[i] = np.sum(mask)*mass_per_point/S[i]
 
