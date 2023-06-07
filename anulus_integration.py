@@ -6,24 +6,17 @@ Created on Thu May 18 15:57:14 2023
 """
 
 import time
-import warnings
-from numbers import Number
 
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.table import Table
 from colossus.cosmology import cosmology
 from colossus.halo import concentration, profile_nfw
-from scipy.integrate import simpson
+
 from scipy.interpolate import interp1d
 
-import NFW_funcs
+from NFW_funcs import quick_MK_profile
 
-import seaborn as sns
-import pandas as pd
-
-import NFW_funcs
-from scipy import interpolate
 
 params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
 cosmology.addCosmology("737", params)
@@ -49,87 +42,17 @@ threshold=ring_incr/2*100
 
 mdef="200m"
 
-DeltaSigmas=np.empty((0, len(ring_radii)))
+DeltaSigmas=np.zeros((1, len(ring_radii)))
 
-for sat in lenses[0:10]:
+for sat in lenses[0:1000]:
     debug_start = time.time()
-    c=concentration.concentration(
-        M=sat["M_halo"], mdef="200m", z=sat["Z_halo"], model="duffy08"
-    )
-    halo_profile = profile_nfw.NFWProfile(M=sat["M_halo"], c=c, z=sat["Z_halo"], mdef=mdef)
-
-    central_density, scale_radius = halo_profile.getParameterArray()
-    virial_radius = scale_radius * c
-    #
-    # Determine CDF of projected (2D) NFW enclosed mass
-    #
-    interp_radii = np.linspace(0, virial_radius, cdf_resolution)
     
-    # debug_start = time.time()
-    # Temporarily ignore division by zero and overflow warnings
-    with np.errstate(divide="ignore", over="ignore"):
-        interp_delta_sigmas = halo_profile.deltaSigma(interp_radii)
-        interp_surface_densities = halo_profile.surfaceDensity(interp_radii)
-    # Correct delta sigmas and surface densities at r=0 to be zero
-    interp_delta_sigmas[0] = 0.0
-    interp_surface_densities[0] = 0.0
-    interp_2d_encl_masses = (
-        np.pi * interp_radii**2 * (interp_delta_sigmas + interp_surface_densities)
-    )
-
-    # print(
-    #     "Finished calculating enclosed mass with colossus after",
-    #     time.time() - debug_start,
-    # )
-    #
-    # Determine number of points to generate for this halo
-    #
-
-    n_points = round(interp_2d_encl_masses[-1:][0] / (mass_per_point))
-    print("For each offset, will generate", n_points, "points for this halo")
-    #
-    # Make 1D interpolator for this halo
-    #
-    # print("Begin creating 2D NFW CDF interpolator")
-    # debug_start2 = time.time()
-    interp_normed_2d_encl_masses = interp1d(
-        interp_2d_encl_masses / interp_2d_encl_masses[-1:][0],
-        interp_radii,
-        assume_sorted=True,
-    )
-
-    # print(
-    #     "Finished creating 2D NFW CDF interpolator after",
-    #     time.time() - debug_start2,
-    # )
-    # print()
-
-    #
-    # Generate random points for this halo + offset combination
-    #
-    rng = np.random.default_rng()
-    offset=0
-    offset_angle = rng.uniform(0, 2 * np.pi)
-    offset_x = offset * np.cos(offset_angle)
-    offset_y = offset * np.sin(offset_angle)
-    #
-    random_cdf_yvals = rng.uniform(0, 1, size=n_points)
-    # print("Begin interpolation")
-    # debug_start3 = time.time()
-    random_radii = interp_normed_2d_encl_masses(random_cdf_yvals)
-    # print("Finished interpolation after", time.time() - debug_start3)
-    random_azimuths = rng.uniform(0, 2 * np.pi, size=n_points)
-    random_radii_x = random_radii * np.cos(random_azimuths) + offset_x
-    random_radii_y = random_radii * np.sin(random_azimuths) + offset_y
-    # print("Begin extending list")
-    # debug_start4 = time.time()
-    #if return_xy:
-
-    #else:
-    random_r=np.array([ np.sqrt(random_radii_x**2 + random_radii_y**2)])
-    random_theta=np.array([ np.arctan2(random_radii_y, random_radii_x)])
-    # print("Finished extending list after", time.time() - debug_start4)
-    print()
+    random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
+                                                      sat['Z_halo'],
+                                                      mass_per_point, 
+                                                      "duffy08",
+                                                      "200m",
+                                                      cdf_resolution)
 
     
     sat_x = sat['R'] * 1000
@@ -171,7 +94,8 @@ for sat in lenses[0:10]:
         "Finished calculating 1 sat after",
         t,
     )
-    DeltaSigmas=np.append(DeltaSigmas, [np.array(sums)],axis=0)
+    DeltaSigmas=np.add(DeltaSigmas,np.array(sums))
+    
     
     # fig, axes = plt.subplots(nrows=2, ncols=1)
 
@@ -191,12 +115,12 @@ for sat in lenses[0:10]:
     # plt.show()
 
 
-avgDsigma=np.mean(DeltaSigmas,axis=0)
+avgDsigma=DeltaSigmas/len(ring_radii)
 
 fig, axes = plt.subplots(nrows=1, ncols=1)
 
 # Plot the second graph on the right subplot
-axes.plot(data2['Ring Radii'],avgDsigma)
+axes.plot(data2['Ring Radii'],avgDsigma[0])
 axes.set_xlabel('kpc')
 axes.set_ylabel('avg DeltaSigma')
 
