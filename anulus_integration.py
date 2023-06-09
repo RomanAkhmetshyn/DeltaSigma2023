@@ -28,7 +28,7 @@ lenses = Table.read("./data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits"
 data_mask = (
         (lenses["R"] >= 0.6)
         & (lenses["R"] < 0.9)
-        & (lenses["zspec"] > -1.0)
+        & (lenses["Pmem"] > 0.8)
     )
 lenses = lenses[data_mask]
 cdf_resolution=1000
@@ -44,7 +44,7 @@ mdef="200m"
 
 DeltaSigmas=np.zeros((1, len(ring_radii)))
 
-for sat in lenses[0:1000]:
+for sat in lenses[0:1]:
     debug_start = time.time()
     
     random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
