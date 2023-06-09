@@ -23,12 +23,12 @@ cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
 #%%
-
+num=0
 lenses = Table.read("./data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits")
 data_mask = (
         (lenses["R"] >= 0.6)
         & (lenses["R"] < 0.9)
-        & (lenses["Pmem"] > 0.8)
+        & (lenses["PMem"] > 0.8)
     )
 lenses = lenses[data_mask]
 cdf_resolution=1000
@@ -43,9 +43,9 @@ threshold=ring_incr/2*100
 mdef="200m"
 
 DeltaSigmas=np.zeros((1, len(ring_radii)))
-
-for sat in lenses[0:1]:
-    debug_start = time.time()
+debug_start = time.time()
+for sat in lenses[0:10]:
+    
     
     random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
                                                       sat['Z_halo'],
@@ -54,7 +54,7 @@ for sat in lenses[0:1]:
                                                       "200m",
                                                       cdf_resolution)
 
-    
+    num+=1
     sat_x = sat['R'] * 1000
     sat_y = 0
     
@@ -89,11 +89,8 @@ for sat in lenses[0:1]:
         DeltaR=ring_counts[i]
         sums.append(DeltalessR-DeltaR)
     data2 = {'Ring Radii': ring_radii[::-1], 'SigmaDelta(R)': sums}
-    t=time.time() - debug_start
-    print(
-        "Finished calculating 1 sat after",
-        t,
-    )
+    # t=time.time() - debug_start
+    print(num)
     DeltaSigmas=np.add(DeltaSigmas,np.array(sums))
     
     
@@ -114,8 +111,14 @@ for sat in lenses[0:1]:
 
     # plt.show()
 
-
+t=time.time() - debug_start
+print(
+    f"Finished calculating {num} sat after",
+    t,
+)
 avgDsigma=DeltaSigmas/len(ring_radii)
+table=np.column_stack((np.array(data2['Ring Radii']),avgDsigma[0]))
+np.savetxt('0609.txt', table, delimiter='\t', fmt='%f')
 
 fig, axes = plt.subplots(nrows=1, ncols=1)
 
@@ -129,21 +132,21 @@ plt.show()
     
 
         
-    # with plt.rc_context({"axes.grid": False}):
-    #     fig, ax = plt.subplots(dpi=100)
-    #     img = ax.hexbin(random_radii_x, random_radii_y, gridsize=100, bins="log")
-    #     ax.plot(0, 0, "r+")
+# with plt.rc_context({"axes.grid": False}):
+#     fig, ax = plt.subplots(dpi=100)
+#     img = ax.hexbin(random_radii_x, random_radii_y, gridsize=100, bins="log")
+#     ax.plot(0, 0, "r+")
 
-    #     for radius in ring_radii:
-    #         circle = plt.Circle((sat_x, sat_y), radius, edgecolor='red', facecolor='none')
-    #         ax.add_patch(circle)
-        
-    #     # ax.set_ylim(-radius, radius)
-    #     # ax.set_xlim(-radius, radius)
-    #     fig.colorbar(img)
-    #     ax.set_aspect("equal")
-    #     # ax.set_title(f"{len(multi_lenses)} halos")
-    #     plt.show()
+#     for radius in ring_radii:
+#         circle = plt.Circle((sat_x, sat_y), radius, edgecolor='red', facecolor='none')
+#         ax.add_patch(circle)
+    
+#     # ax.set_ylim(-radius, radius)
+#     # ax.set_xlim(-radius, radius)
+#     fig.colorbar(img)
+#     ax.set_aspect("equal")
+#     # ax.set_title(f"{len(multi_lenses)} halos")
+#     plt.show()
                 
         
 
