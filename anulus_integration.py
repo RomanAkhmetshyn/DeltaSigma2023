@@ -18,7 +18,7 @@ from scipy.interpolate import interp1d
 from NFW_funcs import quick_MK_profile
 
 
-params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
+params = {"flat": True, "H0": 70, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
 cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
@@ -26,36 +26,49 @@ cosmo = cosmology.setCosmology("737")
 num=0
 lenses = Table.read("./data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits")
 data_mask = (
-        (lenses["R"] >= 0.6)
-        & (lenses["R"] < 0.9)
+        (lenses["R"] >= 0.3)
+        & (lenses["R"] < 0.6)
         & (lenses["PMem"] > 0.8)
     )
 lenses = lenses[data_mask]
 cdf_resolution=1000
-mass_per_point = 1098372.008822474*5000
+mass_per_point = 1098372.008822474*10000
 start_bin=0.01
 end_bin=1.5
 ring_incr=0.02
 ring_num=round((end_bin-start_bin)/ring_incr)
-ring_radii = np.linspace(start_bin, end_bin, ring_num+1) * 1000
+ring_radii = np.linspace(start_bin, end_bin, ring_num+1) * 1000 #Mpc*1000
 threshold=ring_incr/2*100
 
 mdef="200m"
-
+# print(lenses['ID'])
 DeltaSigmas=np.zeros((1, len(ring_radii)))
 debug_start = time.time()
-for sat in lenses[0:10]:
+with open('0306big.txt', 'a+') as f:
+    np.savetxt(f, [ring_radii[::-1]], fmt='%f', newline='\n')
+halo_dict={}
+for sat in lenses:
+    # t1 = time.time()
     
+    if sat['ID'] not in halo_dict:
+        halo_dict={}
+        random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
+                                                          sat['Z_halo'],
+                                                          mass_per_point, 
+                                                          "duffy08",
+                                                          "200m",
+                                                          cdf_resolution)
+        
+        halo_dict[sat['ID']]=[random_radii_x, random_radii_y]
+        
+    else:
+        
+        random_radii_x, random_radii_y = halo_dict[sat['ID']]
+        
     
-    random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
-                                                      sat['Z_halo'],
-                                                      mass_per_point, 
-                                                      "duffy08",
-                                                      "200m",
-                                                      cdf_resolution)
-
+    # print(time.time()-t1)
     num+=1
-    sat_x = sat['R'] * 1000
+    sat_x = sat['R'] * 1000 #Mpc*1000
     sat_y = 0
     
     S=[np.pi*((r+threshold)**2-(r-threshold)**2) for r in ring_radii]
@@ -79,7 +92,7 @@ for sat in lenses[0:10]:
         circle_counts[i] = np.sum(mask)*mass_per_point/(np.pi*(ring_radii[i]- threshold)**2)
 
     # Create a DataFrame using the ring radii and ring counts
-    data = {'Ring Radii': ring_radii, 'Delta(R)': ring_counts}
+    # data = {'Ring Radii': ring_radii, 'Delta(R)': ring_counts}
     # df = pd.DataFrame(data)
     
     sums=[]
@@ -89,8 +102,10 @@ for sat in lenses[0:10]:
         DeltaR=ring_counts[i]
         sums.append(DeltalessR-DeltaR)
     data2 = {'Ring Radii': ring_radii[::-1], 'SigmaDelta(R)': sums}
+    with open('0306big.txt', 'a+') as f:
+        np.savetxt(f, [sums], fmt='%f', newline='\n')
     # t=time.time() - debug_start
-    print(num)
+    # print(num)
     DeltaSigmas=np.add(DeltaSigmas,np.array(sums))
     
     
@@ -116,9 +131,9 @@ print(
     f"Finished calculating {num} sat after",
     t,
 )
-avgDsigma=DeltaSigmas/len(ring_radii)
+avgDsigma=DeltaSigmas/len(lenses)
 table=np.column_stack((np.array(data2['Ring Radii']),avgDsigma[0]))
-np.savetxt('0609.txt', table, delimiter='\t', fmt='%f')
+np.savetxt('0306.txt', table, delimiter='\t', fmt='%f')
 
 fig, axes = plt.subplots(nrows=1, ncols=1)
 
