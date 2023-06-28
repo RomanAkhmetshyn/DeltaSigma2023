@@ -16,24 +16,26 @@ from scipy.interpolate import interp1d
 
 from scipy.optimize import curve_fit
 
-bin='0306'
+bin='0609'
 
 lenses = Table.read("./data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits")
 data_mask = (
-        (lenses["R"] >= 0.3)
-        & (lenses["R"] < 0.6)
+        (lenses["R"] >= 0.6)
+        & (lenses["R"] < 0.9)
         # & (lenses["PMem"] > 0.8)
         & (lenses["zspec"] > -1)
        
     )
 lenses = lenses[data_mask]
 
-# z=np.mean(lenses['zspec'])
+z=np.mean(lenses['zspec'])
 
-def subhalo_profile(r,mass,tau,z ):
+# def subhalo_profile(r,mass,tau,z,A):
+def subhalo_profile(r,mass,tau,A):
     print(mass)
     print(tau)
     print(z)
+    print(A)
     
     concentration_model="duffy08"
     c=concentration.concentration(
@@ -56,18 +58,13 @@ def subhalo_profile(r,mass,tau,z ):
     halo_ds=halo_table[:,1]
     
     f = interp1d(halo_r, halo_ds, kind='cubic')
-    halo_dSigma=f(r)
+    halo_dSigma=f(r)*A
 
     summed_halo=np.add(dSigma,halo_dSigma)/1000000
 
     return summed_halo
 
-# def custom_func(r,mass,tau,z):
-#     if tau < 0 :
-#         return np.inf  # Return infinity if the condition is violated
-#     if z<0.05 or z>0.8:
-#         return np.inf
-#     return subhalo_profile(r,mass,tau,z)
+
 
 # Read the CSV file
 df = pd.read_csv(f'D:/GitHub/summer-research/data/dsigma_measurements/output/ShapePipe{bin}.csv')
@@ -77,25 +74,29 @@ ds = df['ds']
 rp = df['rp']
 ds_err=df['ds_err']
 
-init=[1e12, 5.83, 0.3]
-param_bounds=([0, 0, 0], [np.inf, 35, 0.8])
-# Fit the curve to the data
-# popt, pcov = curve_fit(custom_func, rp, ds, p0=init)
+# init=[1e12, 5.83, 0.3, 1]
+init=[1e12, 5.83, 1]
+# param_bounds=([0, 0, 0, -np.inf], [np.inf, 35, 0.8, np.inf])
+param_bounds=([0, 0, -np.inf], [np.inf, 35, np.inf])
+
 popt, pcov = curve_fit(subhalo_profile, rp, ds, p0=init, bounds=param_bounds, sigma=ds_err, absolute_sigma=True)
 
 # Extract the optimized parameters
 
-lens_mass, lens_tau , lens_z = popt
+# lens_mass, lens_tau , lens_z, param_A = popt
+lens_mass, lens_tau , param_A = popt
 
-fit = subhalo_profile(rp, lens_mass, lens_tau, lens_z)
+lens_z=z
+fit = subhalo_profile(rp, lens_mass, lens_tau, param_A)
+
 
 
 # plt.plot(rp, ds, 'bo', label='Isaac Data')
 plt.plot(rp, fit, 'r-', label='Fitted Curve')
-plt.errorbar(rp, ds, ds_err, label='Isaac Data')
+plt.errorbar(rp, ds, ds_err, fmt='o',label='Isaac Data')
 plt.xlabel('R (Mpc)')
 plt.ylabel('M/pc^2')
-plt.title(f'{bin} lens mass: {lens_mass:.2e}, Z: {lens_z:.2}, Rt/Rs: {lens_tau:.2}')
+plt.title(f'{bin} lens mass: {lens_mass:.2e}, Z: {lens_z:.2}, Rt/Rs: {lens_tau:.2}, A: {param_A:.2}')
 plt.legend()
 plt.show()
 
