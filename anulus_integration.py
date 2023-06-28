@@ -26,9 +26,11 @@ cosmo = cosmology.setCosmology("737")
 num=0
 lenses = Table.read("./data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits")
 data_mask = (
-        (lenses["R"] >= 0.3)
-        & (lenses["R"] < 0.6)
-        & (lenses["PMem"] > 0.8)
+        (lenses["R"] >= 0.1)
+        & (lenses["R"] < 0.3)
+        # & (lenses["PMem"] > 0.8)
+        & (lenses["zspec"] > -1)
+        # & (lenses["PMem"] > 0.8)
     )
 lenses = lenses[data_mask]
 cdf_resolution=1000
@@ -44,7 +46,7 @@ mdef="200m"
 # print(lenses['ID'])
 DeltaSigmas=np.zeros((1, len(ring_radii)))
 debug_start = time.time()
-with open('0306big.txt', 'a+') as f:
+with open('0103big(zspec).txt', 'a+') as f:
     np.savetxt(f, [ring_radii[::-1]], fmt='%f', newline='\n')
 halo_dict={}
 for sat in lenses:
@@ -102,7 +104,7 @@ for sat in lenses:
         DeltaR=ring_counts[i]
         sums.append(DeltalessR-DeltaR)
     data2 = {'Ring Radii': ring_radii[::-1], 'SigmaDelta(R)': sums}
-    with open('0306big.txt', 'a+') as f:
+    with open('0103big(zspec).txt', 'a+') as f:
         np.savetxt(f, [sums], fmt='%f', newline='\n')
     # t=time.time() - debug_start
     # print(num)
@@ -133,7 +135,7 @@ print(
 )
 avgDsigma=DeltaSigmas/len(lenses)
 table=np.column_stack((np.array(data2['Ring Radii']),avgDsigma[0]))
-np.savetxt('0306.txt', table, delimiter='\t', fmt='%f')
+np.savetxt('0103(zspec).txt', table, delimiter='\t', fmt='%f')
 
 fig, axes = plt.subplots(nrows=1, ncols=1)
 
