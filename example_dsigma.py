@@ -45,16 +45,16 @@ from dsigma.stacking import excess_surface_density
 
 ######### hardcoded CONFIG. Set any paths you need here to your machine #########
 lensfit_file = "<path to lens fit catalog>"
-shapepipe_file = "/Users/jackelvinpoole/UNIONS/DataReleases/v1.0/ShapePipe/unions_shapepipe_2022_v1.0_testpatch.fits"
-calib_file = "/Users/jackelvinpoole/UNIONS/mergers/coop_f2022/examples/dsigma_measurements/data/calib_{source_catalog}_v1.1.fits"
+shapepipe_file = "D:/unions_test7000.fits"
+calib_file = "D:/GitHub/summer-research/data/dsigma_measurements/input/calib_ShapePipe_v1.1.fits"
 
-redmapper_file = "<path to redmapper members catalog>"
+redmapper_file = "./data/redmapper_mnc_allz.fits"
 mergers_file = "/Users/jackelvinpoole/UNIONS/mergers/data/merger_table_environment.fits"
 
-randoms_file = "<path to randoms catalog>"
+randoms_file = "D:/dr8_run_redmapper_v6.3.1_randcat_z0.05-0.60_lgt020.fit"
 
-radius_bins = np.linspace(0.05, 1.5, 15)  # Mpc, almost replicate Li+2016
-cosmology = FlatLambdaCDM(H0=100, Om0=0.3)
+radius_bins = np.linspace(0.01, 1.5, 75)  # Mpc, almost replicate Li+2016
+cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
 num_jackknife_regions = 100
 distance_threshold = 10 # in degrees. Used for JK. should be > typical distance between lenses, 
                         # but < size of smallest contiguous field
@@ -213,7 +213,7 @@ def main(
         lenses_mask = (
             (lenses["R"] >= cluster_dist_bin)
             & (lenses["R"] < cluster_dist_bins_end[cluster_dist_bin])
-            & (lenses["ZSPEC"] > -1.0)
+            & (lenses["PMem"] > 0.8)
         )
         lenses = lenses[lenses_mask]
         print(
@@ -225,7 +225,7 @@ def main(
         lenses = dsigma_table(
             lenses,
             "lens",
-            z="ZSPEC",  # spectroscopic redshift
+            z="z_any",  # spectroscopic redshift
             ra="RA",  # right ascension in degrees
             dec="DEC",  # declination in degrees
             w_sys=1,  # systematic weight
