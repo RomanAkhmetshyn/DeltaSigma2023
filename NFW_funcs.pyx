@@ -347,7 +347,7 @@ def quick_MK_profile(double halo_mass,
                      double mass_per_point,
                      str concentration_model="duffy08",
                      str mdef="200m",
-                     int cdf_resolution):
+                     int cdf_resolution=1000):
     """
     
 
@@ -363,7 +363,7 @@ def quick_MK_profile(double halo_mass,
         Concentration model for colossus calculation. The default is "duffy08".
     str mdef : str, optional
         Mass model for colossus calculation. The default is "200m".
-    int cdf_resolution : int
+    int cdf_resolution : int, optional
         Number of points for interpolation of probability function for the profile.
 
     Returns
