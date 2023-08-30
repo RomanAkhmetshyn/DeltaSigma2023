@@ -15,7 +15,113 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.table import Table
 from colossus.cosmology import cosmology
-from NFW_funcs import quick_MK_profile
+from NFW_funcs import quick_MK_profile #COMMENT THIS LINE IF YOU DON'T WANT TO RUN CYTHON
+
+'''UNCOMMENT FOLLOWING FUNCTION IF YOU DON'T WANT TO RUN ON CYTHON'''
+
+# def quick_MK_profile(halo_mass,
+#                      halo_z,
+#                      mass_per_point,
+#                      concentration_model="duffy08",
+#                      mdef="200m",
+#                      cdf_resolution=1000):
+#     """
+    
+
+#     Parameters
+#     ----------
+#     double halo_mass : double
+#         Mass of the host halo in M_sun.
+#     double halo_z : double
+#         Host halo redshift.
+#     double mass_per_point : double
+#         Mass asigned for every random point in M-C.
+#     str concentration_model : str, optional
+#         Concentration model for colossus calculation. The default is "duffy08".
+#     str mdef : str, optional
+#         Mass model for colossus calculation. The default is "200m".
+#     int cdf_resolution : int, optional
+#         Number of points for interpolation of probability function for the profile.
+
+#     Returns
+#     -------
+#     random_radii_x : numpy array
+#         X coords of M-C point.
+#     random_radii_y : numpy array
+#         Y coords of M-C point.
+
+#     """
+#     from colossus.halo import concentration, profile_nfw
+#     from scipy.interpolate import interp1d
+#     c=concentration.concentration(
+#         M=halo_mass, mdef="200m", z=halo_z, model=concentration_model
+#     ) #calculate concentration using colossus
+#     halo_profile = profile_nfw.NFWProfile(M=halo_mass, c=c, z=halo_z, mdef=mdef) #build host halo NFW
+
+#     scale_radius = halo_profile.getParameterArray()[1] #get NFW profile parameter R_scale
+#     virial_radius = scale_radius * c #R_vir= concentration * R_scale
+#     #
+#     # Determine CDF of projected (2D) NFW enclosed mass
+#     #CDF - cumulative distribution function
+#     #
+#     interp_radii = np.linspace(0, virial_radius, cdf_resolution) #distance for cdf
+    
+
+#     # Temporarily ignore division by zero and overflow warnings
+#     with np.errstate(divide="ignore", over="ignore"):
+#         interp_delta_sigmas = halo_profile.deltaSigma(interp_radii)
+#         interp_surface_densities = halo_profile.surfaceDensity(interp_radii)
+#     # Correct delta sigmas and surface densities at r=0 to be zero
+#     interp_delta_sigmas[0] = 0.0
+#     interp_surface_densities[0] = 0.0
+#     interp_2d_encl_masses = (
+#         np.pi * interp_radii**2 * (interp_delta_sigmas + interp_surface_densities)
+#     )
+
+
+
+#     n_points = round(interp_2d_encl_masses[-1:][0] / (mass_per_point))
+#     print("For each offset, will generate", n_points, "points for this halo")
+#     #
+#     # Make 1D interpolator for this halo
+#     #
+
+#     interp_normed_2d_encl_masses = interp1d(
+#         interp_2d_encl_masses / interp_2d_encl_masses[-1:][0],
+#         interp_radii,
+#         assume_sorted=True,
+#     )
+
+    
+
+#     #
+#     # Generate random points for this halo + offset combination
+#     #
+#     rng = np.random.default_rng()
+#     offset=0
+#     offset_angle = rng.uniform(0, 2 * np.pi)
+#     offset_x = offset * np.cos(offset_angle)
+#     offset_y = offset * np.sin(offset_angle)
+#     #
+#     random_cdf_yvals = rng.uniform(0, 1, size=n_points)
+#     # print("Begin interpolation")
+
+#     random_radii = interp_normed_2d_encl_masses(random_cdf_yvals)
+
+#     random_azimuths = rng.uniform(0, 2 * np.pi, size=n_points)
+#     random_radii_x = random_radii * np.cos(random_azimuths) + offset_x
+#     random_radii_y = random_radii * np.sin(random_azimuths) + offset_y
+#     # print("Begin extending list")
+
+#     #if return_xy:
+
+#     #else:
+#     # random_r=np.array([ np.sqrt(random_radii_x**2 + random_radii_y**2)])
+#     # random_theta=np.array([ np.arctan2(random_radii_y, random_radii_x)])
+#     # print("Finished extending list after", time.time() - debug_start4)
+#     # print()
+    
+#     return random_radii_x, random_radii_y
 
 #setting global cosmology. Keep everything H=100, unless your data is different
 params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
