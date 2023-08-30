@@ -5,7 +5,8 @@ Created on Wed May 10 10:43:48 2023
 @author: Roman A.
 
 Compile cython code
-run this code in terminal to compile NFW_funcs.pyx
+run this code in terminal to compile NFW_funcs.pyx:
+python setup_NFW_funcs.py build_ext --inplace
 """
 
 from setuptools import setup
