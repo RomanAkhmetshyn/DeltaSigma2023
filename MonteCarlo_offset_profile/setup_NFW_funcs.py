@@ -2,7 +2,10 @@
 """
 Created on Wed May 10 10:43:48 2023
 
-@author: Admin
+@author: Roman A.
+
+Compile cython code
+run this code in terminal to compile NFW_funcs.pyx
 """
 
 from setuptools import setup
