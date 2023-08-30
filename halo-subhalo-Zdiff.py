@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 lenses = Table.read("./data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits")
 data_mask = (
         (lenses["R"] >= 0.1)
-        & (lenses["R"] < 0.3)
-        # & (lenses["PMem"] > 0.8)
+        & (lenses["R"] < 0.9)
+        & (lenses["PMem"] > 0.8)
         & (lenses["zspec"] > -1)
        
     )
@@ -22,7 +22,7 @@ lenses = lenses[data_mask]
 differences = []
 pmem_values = []
 
-halo_zs=[]
+zs=[]
 
 # Iterate through each row in the table
 for row in lenses:
@@ -30,7 +30,7 @@ for row in lenses:
     z_halo = row["Z_halo"]
     pmem = row["PMem"]
     
-    halo_zs.append(z_halo)
+    zs.append(zspec)
     # Calculate the difference between zspec and Z_halo
     difference = zspec - z_halo
     
@@ -50,12 +50,13 @@ plt.show()
 
 pmem_array = np.array(pmem_values)
 diff_array = np.array(differences)
-combined_array = np.column_stack((pmem_array, diff_array, np.array(halo_zs)))
+zs=np.array(zs)
+combined_array = np.column_stack((pmem_array, diff_array, np.array(zs)))
 
 
 
 # Save the combined array as a text file
-np.savetxt('pmem_diff.txt', combined_array, delimiter='\t', header='PMem\tDifference\tHalo_Z', fmt='%.6f')
+# np.savetxt('pmem_diff.csv', combined_array, delimiter=',', fmt='%.6f')
 
 # num_groups = len(pmem_values) // 100
 

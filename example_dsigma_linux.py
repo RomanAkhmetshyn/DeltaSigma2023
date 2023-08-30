@@ -2,7 +2,7 @@
 """
 Created on Wed Jun 28 14:49:15 2023
 
-@author: Admin
+python example_dsigma_linux.py 1 ShapePipe redmapper -cdb 0.6 -ub
 """
 
 """
@@ -46,15 +46,16 @@ from dsigma.stacking import excess_surface_density
 
 ######### hardcoded CONFIG. Set any paths you need here to your machine #########
 lensfit_file = "<path to lens fit catalog>"
-shapepipe_file = "D:/unions_test7000.fits"
-calib_file = "D:/GitHub/summer-research/data/dsigma_measurements/input/calib_ShapePipe_v1.1.fits"
+# shapepipe_file = "D:/unions_test7000.fits"
+shapepipe_file = "/mnt/d/unions_shapepipe_2022_v1.0.fits"
+calib_file = "/mnt/d/GitHub/summer-research/data/dsigma_measurements/input/calib_ShapePipe_v1.1.fits"
 
-redmapper_file = "./data/redmapper_mnc_allz.fits"
+redmapper_file = "/mnt/d/github/summer-research/data/redmapper_mnc_allz.fits"
 mergers_file = "/Users/jackelvinpoole/UNIONS/mergers/data/merger_table_environment.fits"
 
-randoms_file = "D:/dr8_run_redmapper_v6.3.1_randcat_z0.05-0.60_lgt020.fit"
+randoms_file = "/mnt/d/dr8_run_redmapper_v6.3.1_randcat_z0.05-0.60_lgt020.fit"
 
-radius_bins = np.linspace(0.01, 1.5, 75)  # Mpc, almost replicate Li+2016
+radius_bins = np.linspace(0.01, 1.5, 16)  # Mpc, almost replicate Li+2016
 cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
 num_jackknife_regions = 100
 distance_threshold = 10 # in degrees. Used for JK. should be > typical distance between lenses, 
@@ -159,7 +160,8 @@ def main(
             "z_err": "z_err",  # uncertainty in photometric redshift
         }
     print(f"Ingesting {source_catalog} sources from {source_path}")
-    data = fits.getdata(source_path, 1)
+    data = fits.getdata(source_path, 1)[30000000:60000000]
+    print(len(data))
     #
     # Need fake redshift
     #
@@ -325,8 +327,11 @@ def main(
     if num_lenses < num_jackknife_regions:
         print("N JK > N lenses, setting Njk=Nlens")
         num_jackknife_regions = num_lenses
+        
+    
     jackknife_centers = compute_jackknife_fields(lenses, num_jackknife_regions, distance_threshold=distance_threshold, weights=lenses["n_s_tot"])
-
+    if use_boost:
+        jackknife_centers_rand = compute_jackknife_fields(randoms, jackknife_centers )
     s="""
     add_continous_fields(lenses, distance_threshold=2)  # no need to do this for randoms
     # NOTE: I added line 153 of
@@ -354,10 +359,10 @@ def main(
     )
     """
 
-    #add_jackknife_fields(lenses, jackknife_centers)
-    #if use_boost:
-    #    # Use same jackknife centers as lenses
-    #    add_jackknife_fields(randoms, jackknife_centers)
+    # add_jackknife_fields(lenses, jackknife_centers)
+    # if use_boost:
+    #     # Use same jackknife centers as lenses
+    #     add_jackknife_fields(randoms, jackknife_centers)
     
     # Choose correction factors and other options
     kwargs = {
@@ -378,18 +383,19 @@ def main(
     print("Stacking lensing signal...")
     result = excess_surface_density(lenses, **kwargs)
     kwargs["return_table"] = False
+    # print(randoms.colnames)
     covmat = jackknife_resampling(excess_surface_density, lenses, **kwargs)
     result["ds_err"] = np.sqrt(
         np.diag(covmat)
     )
     #
     result.write(
-        "./output/example_esd_"
-        + f"{source_catalog}_{lens_catalog}_clusterDist{cluster_dist_bin}_randoms{use_boost}_{jobid}.csv"
-    )
+        "/mnt/d/GitHub/summer-research/output/zspec_esd_"
+        + f"{source_catalog}_{lens_catalog}_clusterDist{cluster_dist_bin}_randoms{use_boost}_{jobid}.csv",
+    overwrite=True)
 
     #also saving full covarinace matrix
-    np.savetxt(        "./output/example_esd_"
+    np.savetxt(        "/mnt/d/GitHub/summer-research/output/zspec_esd_"
         + f"{source_catalog}_{lens_catalog}_clusterDist{cluster_dist_bin}_randoms{use_boost}_{jobid}_covmat.txt",
          covmat)
 

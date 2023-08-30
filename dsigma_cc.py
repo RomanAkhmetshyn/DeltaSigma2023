@@ -2,7 +2,7 @@
 """
 Created on Wed Jun 28 14:49:15 2023
 
-@author: Admin
+python example_dsigma_linux.py 1 ShapePipe redmapper -cdb 0.6 -ub
 """
 
 """
@@ -46,16 +46,19 @@ from dsigma.stacking import excess_surface_density
 
 ######### hardcoded CONFIG. Set any paths you need here to your machine #########
 lensfit_file = "<path to lens fit catalog>"
-shapepipe_file = "D:/unions_test7000.fits"
-calib_file = "D:/GitHub/summer-research/data/dsigma_measurements/input/calib_ShapePipe_v1.1.fits"
+# shapepipe_file = "D:/unions_test7000.fits"
+shapepipe_file = "/home/romanakh/projects/def-mjhudson/romanakh/unions_shapepipe_2022_v1.0.fits"
+calib_file = "/home/romanakh/projects/def-mjhudson/romanakh/calib_ShapePipe_v1.1.fits"
 
-redmapper_file = "./data/redmapper_mnc_allz.fits"
+# redmapper_file = "/home/romanakh/projects/def-mjhudson/romanakh/dr8_redmapper_v6.3.1_members_masked.fits"
+redmapper_file = "/home/romanakh/projects/def-mjhudson/romanakh/redmapper_mnc_allz.fits"
 mergers_file = "/Users/jackelvinpoole/UNIONS/mergers/data/merger_table_environment.fits"
 
-randoms_file = "D:/dr8_run_redmapper_v6.3.1_randcat_z0.05-0.60_lgt020.fit"
+randoms_file = "/home/romanakh/projects/def-mjhudson/romanakh/dr8_run_redmapper_v6.3.1_randcat_z0.05-0.60_lgt020.fit"
 
-radius_bins = np.linspace(0.01, 1.5, 75)  # Mpc, almost replicate Li+2016
-cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
+# radius_bins = np.linspace(0.01, 1.5, 16)  # Mpc, almost replicate Li+2016
+radius_bins=[0.01, 0.05, 0.10, 0.15, 0.20, 0.25, 0.35, 0.45, 0.55, 0.65, 0.792, 0.93, 1.075,  1.217, 1.358, 1.5,1.7,1.9,2.1,2.3,2.5,2.7,3.1]
+cosmology = FlatLambdaCDM(H0=100, Om0=0.3)
 num_jackknife_regions = 100
 distance_threshold = 10 # in degrees. Used for JK. should be > typical distance between lenses, 
                         # but < size of smallest contiguous field
@@ -160,6 +163,7 @@ def main(
         }
     print(f"Ingesting {source_catalog} sources from {source_path}")
     data = fits.getdata(source_path, 1)
+    print(len(data))
     #
     # Need fake redshift
     #
@@ -214,8 +218,8 @@ def main(
         lenses_mask = (
             (lenses["R"] >= cluster_dist_bin)
             & (lenses["R"] < cluster_dist_bins_end[cluster_dist_bin])
-            # & (lenses["PMem"] > 0.8)
-            & (lenses["zspec"] > -1)
+            & (lenses["PMem"] > 0.8)
+            # & (lenses["ZSPEC"] > -1)
         )
         lenses = lenses[lenses_mask]
         print(
@@ -227,8 +231,10 @@ def main(
         lenses = dsigma_table(
             lenses,
             "lens",
-            z="zspec",  # spectroscopic redshift
-            # z="z_any",
+            # z="ZSPEC",  # spectroscopic redshift
+            z="z_any",
+            # ra="RA",  # right ascension in degrees
+            # dec="DEC",  # declination in degrees
             ra="RAJ2000",  # right ascension in degrees
             dec="DEJ2000",  # declination in degrees
             w_sys=1,  # systematic weight
@@ -325,8 +331,11 @@ def main(
     if num_lenses < num_jackknife_regions:
         print("N JK > N lenses, setting Njk=Nlens")
         num_jackknife_regions = num_lenses
+        
+    
     jackknife_centers = compute_jackknife_fields(lenses, num_jackknife_regions, distance_threshold=distance_threshold, weights=lenses["n_s_tot"])
-
+    if use_boost:
+        jackknife_centers_rand = compute_jackknife_fields(randoms, jackknife_centers )
     s="""
     add_continous_fields(lenses, distance_threshold=2)  # no need to do this for randoms
     # NOTE: I added line 153 of
@@ -354,10 +363,10 @@ def main(
     )
     """
 
-    #add_jackknife_fields(lenses, jackknife_centers)
-    #if use_boost:
-    #    # Use same jackknife centers as lenses
-    #    add_jackknife_fields(randoms, jackknife_centers)
+    # add_jackknife_fields(lenses, jackknife_centers)
+    # if use_boost:
+    #     # Use same jackknife centers as lenses
+    #     add_jackknife_fields(randoms, jackknife_centers)
     
     # Choose correction factors and other options
     kwargs = {
@@ -378,18 +387,19 @@ def main(
     print("Stacking lensing signal...")
     result = excess_surface_density(lenses, **kwargs)
     kwargs["return_table"] = False
+    # print(randoms.colnames)
     covmat = jackknife_resampling(excess_surface_density, lenses, **kwargs)
     result["ds_err"] = np.sqrt(
         np.diag(covmat)
     )
     #
     result.write(
-        "./output/example_esd_"
-        + f"{source_catalog}_{lens_catalog}_clusterDist{cluster_dist_bin}_randoms{use_boost}_{jobid}.csv"
-    )
+        "./output/roman_esd_far"
+        + f"{source_catalog}_{lens_catalog}_clusterDist{cluster_dist_bin}_randoms{use_boost}_{jobid}.csv",
+    overwrite=True)
 
     #also saving full covarinace matrix
-    np.savetxt(        "./output/example_esd_"
+    np.savetxt(        "./output/roman_esd_far"
         + f"{source_catalog}_{lens_catalog}_clusterDist{cluster_dist_bin}_randoms{use_boost}_{jobid}_covmat.txt",
          covmat)
 

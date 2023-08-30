@@ -18,7 +18,7 @@ from scipy.optimize import curve_fit
 from subhalo_profile import make_profile
 import math
 
-bin='0306'
+bin='0609'
 
 if bin=='0609':
     lowlim=0.6
@@ -41,8 +41,44 @@ data_mask = (
 lenses = lenses[data_mask]
 
 z=np.mean(lenses['z_any'])
-print(z)
 # z=np.mean(lenses['zspec'])
+
+def summed_profile(r,mass,tau,A):
+# def subhalo_profile(r,mass, A):
+    # print(mass)
+    # print(tau)
+    # print(z)
+    # print(A)
+    # tau=200
+    mass=math.pow(10, mass)
+
+    concentration_model="duffy08"
+    c=concentration.concentration(
+            M=mass, mdef="200m", z=z, model=concentration_model
+            )
+    # c=4.67*(mass/math.pow(10, 14))**(-0.11)
+
+    eta=2
+    tnfw = TNFW(mass, c, z, tau, eta)
+    
+    profile=tnfw
+    # R = np.linspace(0.01, 1.5, 75)
+    dSigma=np.squeeze(tnfw.projected_excess(r))/1000000
+
+
+    
+    # dSigma=nfw.projected_excess(R)
+    halo_table = np.genfromtxt(f'{bin}(Mh70).txt', delimiter='\t', usecols=(0, 1), dtype=float)
+    halo_r=halo_table[:,0]/1000
+    
+    halo_ds=halo_table[:,1]
+    
+    f = interp1d(halo_r, halo_ds, kind='cubic')
+    halo_dSigma=f(r)*A
+
+    summed_halo=np.add(dSigma,halo_dSigma)/1000000
+
+    return profile, summed_halo
 
 def subhalo_profile(r,mass,tau,A):
 # def subhalo_profile(r,mass, A):
@@ -98,7 +134,7 @@ ds_err=df['ds_err']
 
 init=[12, 1, 1]
 
-param_bounds=([10, 0,-np.inf], [np.inf, np.inf, np.inf])
+param_bounds=([10, 0,-np.inf], [np.inf, 100, np.inf])
 
 popt, pcov = curve_fit(subhalo_profile, rp, ds, p0=init, bounds=param_bounds, sigma=ds_err, absolute_sigma=True,
                        method='dogbox')
@@ -111,8 +147,19 @@ popt, pcov = curve_fit(subhalo_profile, rp, ds, p0=init, bounds=param_bounds, si
 lens_mass, lens_tau, param_A= popt
 lens_z=z
 
-fit = subhalo_profile(rp, lens_mass, lens_tau, param_A)
+profile, fit = summed_profile(rp, lens_mass, lens_tau, param_A)
 
+deltaC=profile.delta_c
+rho_crit=profile.critical_density
+Rs=profile.rs[0]
+Rt=lens_tau*Rs
+M0=deltaC*rho_crit*16*math.pi*Rs**3
+print("M0(rho, Rs): ",math.log10(M0))
+t=lens_tau
+denominator=(t**2/((t**2+1)**2))*((t**2-1)*math.log(t)+t*math.pi-(t**2+1))
+Mo=math.pow(10,lens_mass)/denominator
+print("M0(tau): ",math.log10(Mo))
+print('lense mass: ',lens_mass)
 
 r_full,ds_halo, ds_sub=make_profile(math.pow(10,lens_mass), lens_z, lens_tau, param_A,  B=1, distbin=bin, plot=False)
 # r_full,ds_full=make_profile(1e12, 0.35, 35, 0.6, distbin=bin, plot=False)

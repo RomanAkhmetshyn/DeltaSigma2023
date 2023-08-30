@@ -1,10 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jun 22 11:42:59 2023
 
-@author: Admin
-"""
-
+from scipy.optimize import minimize
 import pandas as pd
 from profiley.nfw import TNFW, NFW
 import matplotlib.pyplot as plt
@@ -18,7 +13,41 @@ from scipy.optimize import curve_fit
 from subhalo_profile import make_profile
 import math
 
-bin='0306'
+def subhalo_profile(r,mass,tau,A):
+    # print(mass)
+    # print(tau)
+    # print(z)
+    # print(A)
+    
+    mass=math.pow(10, mass)
+    concentration_model="duffy08"
+    c=concentration.concentration(
+            M=mass, mdef="200m", z=z, model=concentration_model
+            )
+
+    eta=2
+    tnfw = TNFW(mass, c, z, tau, eta)
+    
+    
+    # R = np.linspace(0.01, 1.5, 75)
+    dSigma=np.squeeze(tnfw.projected_excess(r))/1000000
+
+
+    
+    # dSigma=nfw.projected_excess(R)
+    halo_table = np.genfromtxt(f'{bin}.txt', delimiter='\t', usecols=(0, 1), dtype=float)
+    halo_r=halo_table[:,0]/1000
+    
+    halo_ds=halo_table[:,1]
+    
+    f = interp1d(halo_r, halo_ds, kind='cubic')
+    halo_dSigma=f(r)*A
+
+    summed_halo=np.add(dSigma,halo_dSigma)/1000000
+
+    return summed_halo
+
+bin='0609'
 
 if bin=='0609':
     lowlim=0.6
@@ -41,47 +70,6 @@ data_mask = (
 lenses = lenses[data_mask]
 
 z=np.mean(lenses['z_any'])
-print(z)
-# z=np.mean(lenses['zspec'])
-
-def subhalo_profile(r,mass,tau,A):
-# def subhalo_profile(r,mass, A):
-    # print(mass)
-    # print(tau)
-    # print(z)
-    # print(A)
-    # tau=200
-    mass=math.pow(10, mass)
-
-    concentration_model="duffy08"
-    c=concentration.concentration(
-            M=mass, mdef="200m", z=z, model=concentration_model
-            )
-    # c=4.67*(mass/math.pow(10, 14))**(-0.11)
-
-    eta=2
-    tnfw = TNFW(mass, c, z, tau, eta)
-    
-    
-    # R = np.linspace(0.01, 1.5, 75)
-    dSigma=np.squeeze(tnfw.projected_excess(r))/1000000
-
-
-    
-    # dSigma=nfw.projected_excess(R)
-    halo_table = np.genfromtxt(f'{bin}(Mh70).txt', delimiter='\t', usecols=(0, 1), dtype=float)
-    halo_r=halo_table[:,0]/1000
-    
-    halo_ds=halo_table[:,1]
-    
-    f = interp1d(halo_r, halo_ds, kind='cubic')
-    halo_dSigma=f(r)*A
-
-    summed_halo=np.add(dSigma,halo_dSigma)/1000000
-
-    return summed_halo
-
-
 
 # Read the CSV file
 # df = pd.read_csv(f'D:/GitHub/summer-research/output-roman(correct)/roman_esd_ShapePipe_redmapper_clusterDist{lowlim}_randomsTrue_1.csv')
@@ -96,37 +84,38 @@ ds = df['ds']
 rp = df['rp']
 ds_err=df['ds_err']
 
-init=[12, 1, 1]
+# Define the model function
 
-param_bounds=([10, 0,-np.inf], [np.inf, np.inf, np.inf])
+# Define the objective function (sum of squared errors)
+def objective_function(params):
+    predicted = subhalo_profile(rp, *params)
+    error = (ds - predicted)/ds_err
+    return np.sum(error**2)
 
-popt, pcov = curve_fit(subhalo_profile, rp, ds, p0=init, bounds=param_bounds, sigma=ds_err, absolute_sigma=True,
-                       method='dogbox')
+# Initial guess for the model parameters
+initial_params = [12, 5.83, 1]
+bounds=[(1,None),(0,None),(None,None)]
 
-# print(pcov)
-# print(popt)
+# Minimize the objective function to fit the model
+result = minimize(objective_function, initial_params, bounds=bounds)
+
 # Extract the optimized parameters
+lens_mass, lens_tau , param_A = result.x
 
-# lens_mass, lens_tau , lens_z, param_A = popt
-lens_mass, lens_tau, param_A= popt
 lens_z=z
-
 fit = subhalo_profile(rp, lens_mass, lens_tau, param_A)
 
 
-r_full,ds_halo, ds_sub=make_profile(math.pow(10,lens_mass), lens_z, lens_tau, param_A,  B=1, distbin=bin, plot=False)
+r_full,ds_halo,ds_sub=make_profile(math.pow(10,lens_mass), lens_z, lens_tau, param_A, B=1 ,distbin=bin, plot=False)
 # r_full,ds_full=make_profile(1e12, 0.35, 35, 0.6, distbin=bin, plot=False)
 # plt.plot(rp, ds, 'bo', label='Isaac Data')
-# plt.plot(rp, fit, 'r-', label='interp Curve')
+plt.plot(rp, fit, 'r-', label='interp Curve')
 plt.plot(r_full, ds_halo+ds_sub, 'g-', label='fitted Curve')
 plt.errorbar(rp, ds, ds_err, fmt='o',label='dsigma Data')
-plt.plot(r_full, ds_halo, '--', label='halo')
-plt.plot(r_full, ds_sub, '--', label='subhalo')
 plt.xlabel('R (Mpc)')
 plt.ylabel('M/pc^2')
 plt.grid()
 plt.ylim(-40,120)
-plt.title(f'{bin} lens log(mass): {lens_mass:.2f}, Z: {lens_z:.2}, tau: {lens_tau:.2f}, A: {param_A:.2}')
+plt.title(f'{bin} lens log(mass): {lens_mass:.2f}, Z: {lens_z:.2}, Rt/Rs: {lens_tau:.2f}, A: {param_A:.2}')
 plt.legend()
 plt.show()
-

@@ -18,19 +18,31 @@ from scipy.interpolate import interp1d
 from NFW_funcs import quick_MK_profile
 
 
-params = {"flat": True, "H0": 70, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
+params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
 cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
 #%%
+bin='0306'
+
+if bin=='0609':
+    lowlim=0.6
+    highlim=0.9
+elif bin=='0306':
+    lowlim=0.3
+    highlim=0.6
+elif bin=='0103':
+    lowlim=0.1
+    highlim=0.3 
+    
 num=0
 lenses = Table.read("./data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits")
 data_mask = (
-        (lenses["R"] >= 0.1)
-        & (lenses["R"] < 0.3)
+        (lenses["R"] >= lowlim)
+        & (lenses["R"] < highlim)
         # & (lenses["PMem"] > 0.8)
-        & (lenses["zspec"] > -1)
-        # & (lenses["PMem"] > 0.8)
+        # & (lenses["zspec"] > -1)
+        & (lenses["PMem"] > 0.8)
     )
 lenses = lenses[data_mask]
 cdf_resolution=1000
@@ -46,7 +58,7 @@ mdef="200m"
 # print(lenses['ID'])
 DeltaSigmas=np.zeros((1, len(ring_radii)))
 debug_start = time.time()
-with open('0103big(zspec).txt', 'a+') as f:
+with open(f'{bin}big(Mh70).txt', 'a+') as f:
     np.savetxt(f, [ring_radii[::-1]], fmt='%f', newline='\n')
 halo_dict={}
 for sat in lenses:
@@ -54,7 +66,7 @@ for sat in lenses:
     
     if sat['ID'] not in halo_dict:
         halo_dict={}
-        random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
+        random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo']*1.429,
                                                           sat['Z_halo'],
                                                           mass_per_point, 
                                                           "duffy08",
@@ -104,7 +116,7 @@ for sat in lenses:
         DeltaR=ring_counts[i]
         sums.append(DeltalessR-DeltaR)
     data2 = {'Ring Radii': ring_radii[::-1], 'SigmaDelta(R)': sums}
-    with open('0103big(zspec).txt', 'a+') as f:
+    with open(f'{bin}big(Mh70).txt', 'a+') as f:
         np.savetxt(f, [sums], fmt='%f', newline='\n')
     # t=time.time() - debug_start
     # print(num)
@@ -135,7 +147,7 @@ print(
 )
 avgDsigma=DeltaSigmas/len(lenses)
 table=np.column_stack((np.array(data2['Ring Radii']),avgDsigma[0]))
-np.savetxt('0103(zspec).txt', table, delimiter='\t', fmt='%f')
+np.savetxt(f'{bin}(Mh70).txt', table, delimiter='\t', fmt='%f')
 
 fig, axes = plt.subplots(nrows=1, ncols=1)
 
