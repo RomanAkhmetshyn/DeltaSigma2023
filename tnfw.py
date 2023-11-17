@@ -41,7 +41,7 @@ eta=2
 # print(tau)
 
 fig, ax = plt.subplots()
-for trunc_radius in np.arange(0,1, 0.02):
+for trunc_radius in np.arange(0,1, 0.05):
 
     tau=trunc_radius/scale_radius
     

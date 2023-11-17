@@ -39,8 +39,8 @@ num=0 #iterator for number of lenses calculated, can be removed
 lenses = Table.read("D:/GitHub/summer-research/data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits") #RedMaPPer catalog -
 #Combined by myself with host halo masses and redshifts - email me if you want it
 dist_file=Table.read(f'D:/GitHub/summer-research/data/{bin}_members_dists.fits')
-offsets=dist_file[['R0','R1','R2','R3','R4']]
-weights=dist_file[['W0','W1','W2','W3','W4']]
+
+
 #filter lenses that are in a distance bin. You can also filter by membership probability and redshift
 data_mask = (
         (lenses["R"] >= lowlim)
@@ -65,7 +65,7 @@ mdef="200m" #cosmological mass definition
 DeltaSigmas=np.zeros((1, len(ring_radii))) #np array for all delta sigma measurments
 debug_start = time.time() #timing the whole script
 
-with open(f'{bin}bigw(Mh70).txt', 'a+') as f: #text file which will contain all deltaSigma measurments
+with open(f'{bin}bigm(Mh70).txt', 'a+') as f: #text file which will contain all deltaSigma measurments
     np.savetxt(f, [ring_radii[::-1]], fmt='%f', newline='\n')
     
 halo_dict={} # a dictionary for each host halo, so we don't calculate same thing repeatedly
@@ -92,57 +92,57 @@ for k, sat in enumerate(lenses): #iterate through each lens
         
     
     # print(time.time()-t1)
-    num+=1
     
-    offset_sigmas=np.zeros((5,len(ring_radii)))
-    for offset_num, sat_x in enumerate(offsets[k]):
     
-        sat_x = sat['R'] * 1000 #Mpc*1000 convert coords to kpc
-        sat_y = 0
-        
-        S=[np.pi*((r+threshold)**2-(r-threshold)**2) for r in ring_radii] #area if rings
-        # Calculate the distances for all random points at once
-        distances = np.sqrt((random_radii_x - sat_x)**2 + (random_radii_y - sat_y)**2)
-        
-        # Create an empty array to store the counts for each ring
-        ring_counts = np.zeros(len(ring_radii), dtype=np.int64) #counts in the rings
-        circle_counts = np.zeros(len(ring_radii), dtype=np.int64) #counts in enclosed circles
-        
-        # Iterate over each ring radius and count the points within each ring
-        for i in range(len(ring_radii)):
-            mask = np.logical_and(ring_radii[i] - threshold <= distances, 
-                                  distances <= ring_radii[i] + threshold) #mask points that are within ring
-            
-            
-            ring_counts[i] = np.sum(mask)*mass_per_point/S[i] #get surface density in rings
-            
-        for i in range(len(ring_radii)): #the same but iterate each circle
-            mask = np.logical_and(0 <= distances, distances <= ring_radii[i] - threshold)
-            
-            circle_counts[i] = np.sum(mask)*mass_per_point/(np.pi*(ring_radii[i]- threshold)**2)
+    # offset_sigmas=np.zeros((5,len(ring_radii)))
+    # for offset_num, sat_x in enumerate(offsets[k]):
     
-        
-        
-        # sums=[]
+    sat_x = dist_file[num]['R1'] * 1000 #Mpc*1000 convert coords to kpc
+    sat_y = 0
     
-        # for i in range(len(ring_radii)-1,-1,-1): #iterate through each radii
-        #     DeltalessR=circle_counts[i]
-        #     DeltaR=ring_counts[i]
-        #     sums.append(DeltalessR-DeltaR) #Delta Sigmas for each ring-circle pair
-        # sums=np.array(sums)
+    S=[np.pi*((r+threshold)**2-(r-threshold)**2) for r in ring_radii] #area if rings
+    # Calculate the distances for all random points at once
+    distances = np.sqrt((random_radii_x - sat_x)**2 + (random_radii_y - sat_y)**2)
+    
+    # Create an empty array to store the counts for each ring
+    ring_counts = np.zeros(len(ring_radii), dtype=np.int64) #counts in the rings
+    circle_counts = np.zeros(len(ring_radii), dtype=np.int64) #counts in enclosed circles
+    
+    # Iterate over each ring radius and count the points within each ring
+    for i in range(len(ring_radii)):
+        mask = np.logical_and(ring_radii[i] - threshold <= distances, 
+                              distances <= ring_radii[i] + threshold) #mask points that are within ring
         
-        sums = np.array([DeltalessR - DeltaR for DeltalessR, DeltaR in zip(circle_counts, ring_counts)])
+        
+        ring_counts[i] = np.sum(mask)*mass_per_point/S[i] #get surface density in rings
+        
+    for i in range(len(ring_radii)): #the same but iterate each circle
+        mask = np.logical_and(0 <= distances, distances <= ring_radii[i] - threshold)
+        
+        circle_counts[i] = np.sum(mask)*mass_per_point/(np.pi*(ring_radii[i]- threshold)**2)
+
+    
+    
+    # sums=[]
+
+    # for i in range(len(ring_radii)-1,-1,-1): #iterate through each radii
+    #     DeltalessR=circle_counts[i]
+    #     DeltaR=ring_counts[i]
+    #     sums.append(DeltalessR-DeltaR) #Delta Sigmas for each ring-circle pair
+    # sums=np.array(sums)
+    
+    sums = np.array([DeltalessR - DeltaR for DeltalessR, DeltaR in zip(circle_counts, ring_counts)])
         # data2 = {'Ring Radii': ring_radii[::-1], 'SigmaDelta(R)': sums} #a really useless variable in here
-        offset_sigmas[offset_num]=np.array(sums)
+        # offset_sigmas[offset_num]=np.array(sums)
     
-    offset_weights=list(weights[k])
-    weighted_average_dsigma=np.average(offset_sigmas,axis=0,weights=offset_weights)
-    with open(f'{bin}bigw(Mh70).txt', 'a+') as f: #each row is DeltaSigma of single lense
+    # offset_weights=list(weights[k])
+    # weighted_average_dsigma=np.average(offset_sigmas,axis=0,weights=offset_weights)
+    with open(f'{bin}bigm(Mh70).txt', 'a+') as f: #each row is DeltaSigma of single lense
         np.savetxt(f, [sums], fmt='%f', newline='\n')
 
 
-    DeltaSigmas=np.add(DeltaSigmas,weighted_average_dsigma)
-    
+    DeltaSigmas=np.add(DeltaSigmas,np.array(sums))
+    num+=1
     
     # fig, axes = plt.subplots(nrows=2, ncols=1)
 
@@ -168,7 +168,7 @@ print(
 )
 avgDsigma=DeltaSigmas/len(lenses) #average Delta Sigma of all all lenses
 table=np.column_stack((ring_radii,avgDsigma[0]))
-np.savetxt(f'{bin}w(Mh70).txt', table, delimiter='\t', fmt='%f') #save average delta sigma
+np.savetxt(f'{bin}m(Mh70).txt', table, delimiter='\t', fmt='%f') #save average delta sigma
 
 fig, axes = plt.subplots(nrows=1, ncols=1)
 

@@ -23,7 +23,7 @@ cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
 #%%
-bin='0306' #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
+bin='0609' #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
 
 if bin=='0609':
     lowlim=0.6
@@ -68,7 +68,7 @@ with open(f'{bin}big(Mh70).txt', 'a+') as f: #text file which will contain all d
     
 halo_dict={} # a dictionary for each host halo, so we don't calculate same thing repeatedly
 
-for sat in lenses: #iterate through each lens
+for sat in lenses[0:100]: #iterate through each lens
     # t1 = time.time()
     
     if sat['ID'] not in halo_dict: #check if M-C was calculated for this ID (host halo ID)
