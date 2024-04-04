@@ -18,7 +18,7 @@ from colossus.cosmology import cosmology
 from NFW_funcs import quick_MK_profile
 
 #setting global cosmology. Keep everything H=100, unless your data is different
-params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
+params = {"flat": True, "H0": 70, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
 cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
@@ -36,7 +36,7 @@ elif bin=='0103':
     highlim=0.3 
     
 num=0 #iterator for number of lenses calculated, can be removed
-lenses = Table.read("D:/GitHub/summer-research/data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits") #RedMaPPer catalog -
+lenses = Table.read("C:/catalogs/members_n_clusters_masked.fits") #RedMaPPer catalog -
 #Combined by myself with host halo masses and redshifts - email me if you want it
 
 #filter lenses that are in a distance bin. You can also filter by membership probability and redshift
@@ -68,14 +68,12 @@ with open(f'{bin}big(Mh70).txt', 'a+') as f: #text file which will contain all d
     
 halo_dict={} # a dictionary for each host halo, so we don't calculate same thing repeatedly
 
-for sat in lenses[0:100]: #iterate through each lens
+for sat in lenses: #iterate through each lens
     # t1 = time.time()
     
     if sat['ID'] not in halo_dict: #check if M-C was calculated for this ID (host halo ID)
         halo_dict={} #empty the dictionary
-        random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo']*1.429,
-                                                          #here I multiplied by 1.429 cuz I calculated
-                                                          #masses for H=70 cosmology
+        random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
                                                           sat['Z_halo'],
                                                           mass_per_point, 
                                                           "duffy08",
@@ -130,23 +128,6 @@ for sat in lenses[0:100]: #iterate through each lens
     # print(num)
     DeltaSigmas=np.add(DeltaSigmas,np.array(sums))
     
-    
-    # fig, axes = plt.subplots(nrows=2, ncols=1)
-
-    # # Plot the first graph on the left subplot
-    # axes[0].plot(data['Ring Radii'],data['Delta(R)'])
-    # axes[0].set_xlabel('kpc')
-    # axes[0].set_ylabel('sigma(R)')
-
-    
-    # # Plot the second graph on the right subplot
-    # axes[1].plot(data2['Ring Radii'],data2['SigmaDelta(R)'])
-    # axes[1].set_xlabel('kpc')
-    # axes[1].set_ylabel('DeltaSigma')
-
-    # fig.suptitle('mpp=%.2e, n=%.3e, t=%.2f, rings=%i'%(mass_per_point, n_points,  t, len(ring_radii)))
-
-    # plt.show()
 
 t=time.time() - debug_start
 print(
@@ -167,24 +148,7 @@ axes.set_ylabel('avg DeltaSigma')
 
 plt.show()
     
-#old plots for visualizations :
-        
-# with plt.rc_context({"axes.grid": False}):
-#     fig, ax = plt.subplots(dpi=100)
-#     img = ax.hexbin(random_radii_x, random_radii_y, gridsize=100, bins="log")
-#     ax.plot(0, 0, "r+")
 
-#     for radius in ring_radii:
-#         circle = plt.Circle((sat_x, sat_y), radius, edgecolor='red', facecolor='none')
-#         ax.add_patch(circle)
-    
-#     # ax.set_ylim(-radius, radius)
-#     # ax.set_xlim(-radius, radius)
-#     fig.colorbar(img)
-#     ax.set_aspect("equal")
-#     # ax.set_title(f"{len(multi_lenses)} halos")
-#     plt.show()
-                
         
 
 
