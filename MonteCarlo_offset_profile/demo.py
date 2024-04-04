@@ -9,11 +9,11 @@ params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns
 cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
-lenses = Table.read("D:/GitHub/summer-research/data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits") #RedMaPPer catalog -
+lenses = Table.read("C:/catalogs/members_n_clusters_masked.fits")
 #Combined by myself with host halo masses and redshifts - email me if you want it
 
-lowlim=0.1
-highlim=0.3
+lowlim=0.3
+highlim=0.6
 #filter lenses that are in a distance bin. You can also filter by membership probability and redshift
 data_mask = (
         (lenses["R"] >= lowlim)

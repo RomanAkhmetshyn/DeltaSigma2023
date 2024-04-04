@@ -378,6 +378,7 @@ def quick_MK_profile(double halo_mass,
     c=concentration.concentration(
         M=halo_mass, mdef="200m", z=halo_z, model=concentration_model
     ) #calculate concentration using colossus
+
     halo_profile = profile_nfw.NFWProfile(M=halo_mass, c=c, z=halo_z, mdef=mdef) #build host halo NFW
 
     scale_radius = halo_profile.getParameterArray()[1] #get NFW profile parameter R_scale
