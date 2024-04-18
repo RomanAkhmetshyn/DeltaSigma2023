@@ -100,7 +100,7 @@ for i in trange(len(lenses[:1000])): #iterate through each lens
         random_radii_x, random_radii_y = halo_dict[sat['ID']] #next lenses will use first M-C coordinates
         
     
-    sat_x = dist_file[num]['R0'] * 1000 #Mpc*1000 convert coords to kpc
+    sat_x = dist_file[num]['R0'] * 1000 * 1.429 #Mpc*1000 convert coords to kpc
     sat_y = 0
     
     S=[np.pi*((r+threshold)**2-(r-threshold)**2) for r in ring_radii] #area if rings
