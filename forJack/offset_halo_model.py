@@ -11,8 +11,6 @@ import numpy as np
 from astropy.table import Table
 from colossus.cosmology import cosmology
 from colossus.halo import concentration, profile_nfw
-from NFW_funcs import quick_MK_profile
-import pandas as pd
 from scipy.interpolate import interp1d
 from tqdm import trange
 
@@ -115,7 +113,6 @@ cosmo = cosmology.setCosmology("737")
 
 cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)
 
-# input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
 bins = ['0609', '0306', '0103']
 # bins=[ '0103'] #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
 
@@ -135,10 +132,10 @@ for bin in bins:
         scale = 0.008
 
     # RedMaPPer catalog -
-    lenses = Table.read("C:/catalogs/members_n_clusters_masked.fits")
+    lenses = Table.read("members_n_clusters_masked.fits")
     # Combined by myself with host halo masses and redshifts - email me if you want it
-    dist_file = Table.read(f'C:/catalogs/{bin}_members_dists.fits')
-    cluster_file = Table.read(f'C:/catalogs/clusters_w_centers.fit')
+    dist_file = Table.read(f'{bin}_members_dists.fits')
+    cluster_file = Table.read(f'clusters_w_centers.fit')
 
     # filter lenses that are in a distance bin. You can also filter by membership probability and redshift
     data_mask = (
@@ -185,21 +182,6 @@ for bin in bins:
             c = concentration.concentration(
                 M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
             )  # calculate concentration using colossus
-
-            # c = 4.67*np.power((sat['M_halo']/(1e14*1.429)), -0.11)
-
-            # if 0.08<sat['Z_halo']<=0.35:
-            #     C0 = 5.119
-            #     gamma = 0.205
-            #     M = sat['M_halo']
-            #     M0 = np.power(10, 14.083)
-            # else:
-            #     C0 = 4.875
-            #     gamma = 0.221
-            #     M = sat['M_halo']
-            #     M0 = np.power(10, 13.750)
-
-            # c = C0 * np.power(M/1e12,-gamma) * (1 + np.power(M/M0, 0.4))
 
             random_radii_x, random_radii_y = random_points(sat['M_halo'],
                                                            # here I multiplied by 1.429 cuz I calculated
@@ -294,11 +276,9 @@ for bin in bins:
     )
     avgDsigma = DeltaSigmas/len(lenses)  # average Delta Sigma of all all lenses
     table = np.column_stack((ring_radii, avgDsigma[0]))
-    np.savetxt(f'new-test/{bin}_rayleigh.txt', table,
+    np.savetxt(f'{bin}_rayleigh.txt', table,
                delimiter='\t', fmt='%f')  # save average delta sigma
-    # plt.vlines(np.mean(dist_file['R0']) * 1000 * 1.429, -2e8, 2e8, color='r')
-    # print(np.mean(lenses['R'])*1.429 * 1000)
-    # plt.vlines(np.mean(lenses['R']) * 1000 * 1.429, -2e8, 2e8, color='r')
+
     plt.plot(ring_radii, avgDsigma[0]/1e6,
              color='black', linewidth=0.5, linestyle='--')
     plt.show()
