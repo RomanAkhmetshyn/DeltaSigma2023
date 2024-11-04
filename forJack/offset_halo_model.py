@@ -129,7 +129,7 @@ for bin in bins:
     elif bin == '0103':
         lowlim = 0.1
         highlim = 0.3
-        scale = 0.008
+        scale = 0.008  # scale of rayleigh distr
 
     # RedMaPPer catalog -
     lenses = Table.read("members_n_clusters_masked.fits")
