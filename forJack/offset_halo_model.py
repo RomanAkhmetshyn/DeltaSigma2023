@@ -27,6 +27,7 @@ def random_points(halo_mass,
                   cdf_resolution=1000):
     """
 
+    This function calculates random points that follow NFW profile
 
     Parameters
     ----------
@@ -111,7 +112,7 @@ params = {"flat": True, "H0": 70, "Om0": 0.3,
 cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
-cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)
+cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)  # cosmology for Rykoff
 
 bins = ['0609', '0306', '0103']
 # bins=[ '0103'] #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
