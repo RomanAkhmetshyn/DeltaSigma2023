@@ -1,13 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu May 18 15:57:14 2023
+Created on Fri May 10 13:27:14 2024
 
-@author: Roman Akhmetshyn
-e-mail: romix_aa@ukr.net
-
-A code that uses Monte-Carlo method to calculate offset host halo profile. 
-The Monte-Carlo part is all in NFW_funcs.quick_MK_profile()
-The rest is just modelling rings and circles and calculating their area.
+@author: romix
 """
 
 import time
@@ -18,6 +13,8 @@ from colossus.cosmology import cosmology
 from colossus.halo import concentration, profile_nfw
 from NFW_funcs import quick_MK_profile
 import pandas as pd
+from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
 
 #setting global cosmology. Keep everything H=100, unless your data is different
 params = {"flat": True, "H0": 70, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
@@ -25,7 +22,13 @@ cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
 #%%
-# bins=['0609', '0306', '0103'] #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
+
+start_bin=0.01 * 1.429 #first ring lens-centric disatnce Mpc
+end_bin=1.5 * 1.429 #final ring lens-centric distance
+ring_incr=0.02 #distance between rings
+ring_num=round((end_bin-start_bin)/ring_incr) #number of rings
+ring_radii = np.linspace(start_bin, end_bin, ring_num+1) * 1000 #Mpc*1000=kpc, radii of all rings in kps
+
 bins=[ '0609'] #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
 
 for bin in bins:
@@ -39,7 +42,10 @@ for bin in bins:
     elif bin=='0103':
         lowlim=0.1
         highlim=0.3 
-        
+
+def halo(rp, A, c):
+
+    # print(A, c)
     num=0 #iterator for number of lenses calculated, can be removed
     lenses = Table.read("C:/catalogs/members_n_clusters_masked.fits") #RedMaPPer catalog -
     #Combined by myself with host halo masses and redshifts - email me if you want it
@@ -58,16 +64,8 @@ for bin in bins:
     cdf_resolution=1000 #interpolation resulotion, i.e. number of points for probability distribution func.
     mass_per_point = 1098372.008822474*10000 #arbitrary number, Mass/mpp = number of points for M-C
     
-    start_bin=0.01 * 1.429 #first ring lens-centric disatnce Mpc
-    # start_bin = 0.001 * 1.429
-    end_bin=1.5 * 1.429 #final ring lens-centric distance
-    # end_bin=2.5 * 1.429 #final ring lens-centric distance
-    ring_incr=0.02 * 1.429 #distance between rings
-    ring_num=round((end_bin-start_bin)/ring_incr) #number of rings
-    ring_radii = np.linspace(start_bin, end_bin, ring_num+1) * 1000 #Mpc*1000=kpc, radii of all rings in kps
+
     threshold=ring_incr/2*100 #the same small width for each ring.
-    # threshold=ring_incr/4*100 #the same small width for each ring.
-    # threshold = 0.5
     
     mdef="200m" #cosmological mass definition 
     
@@ -78,23 +76,18 @@ for bin in bins:
     #     np.savetxt(f, [ring_radii[::-1]], fmt='%f', newline='\n')
         
     halo_dict={} # a dictionary for each host halo, so we don't calculate same thing repeatedly
-    # lenses = lenses[:3000]
-    # dist_file = dist_file[:3000]
     
-    # plt.hist(lenses['R']*1000*1.429, bins=100)
-    # plt.show()
-    for sat in lenses: #iterate through each lens
+    for sat in lenses[:200]: #iterate through each lens
         # t1 = time.time()
         
         if sat['ID'] not in halo_dict: #check if M-C was calculated for this ID (host halo ID)
             halo_dict={} #empty the dictionary
-            c=concentration.concentration(
-                M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
-            ) #calculate concentration using colossus
+            # c=concentration.concentration(
+            #     M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
+            # ) #calculate concentration using colossus
             
-            # c = 4.67*np.power((sat['M_halo']/(1e14*1.429)), -0.11)
+            # c = np.power(4.67*(sat['M_halo']/(1e14*1.429)), -0.11)
             
-            # print(c)
             random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
                                                               #here I multiplied by 1.429 cuz I calculated
                                                               #masses for H=70 cosmology
@@ -111,15 +104,8 @@ for bin in bins:
             
             random_radii_x, random_radii_y = halo_dict[sat['ID']] #next lenses will use first M-C coordinates
             
-        
-        # print(time.time()-t1)
-        
-        
-        # offset_sigmas=np.zeros((5,len(ring_radii)))
-        # for offset_num, sat_x in enumerate(offsets[k]):
-        
+
         sat_x = dist_file[num]['R0'] * 1000 * 1.429 #Mpc*1000 convert coords to kpc
-        # sat_x = sat['R'] * 1000 * 1.429 #Mpc*1000 convert coords to kp
         sat_y = 0
         
         S=[np.pi*((r+threshold)**2-(r-threshold)**2) for r in ring_radii] #area if rings
@@ -143,47 +129,13 @@ for bin in bins:
             
             circle_counts[i] = np.sum(mask)*mass_per_point/(np.pi*(ring_radii[i]- threshold)**2)
     
-        
-        
-        # sums=[]
-    
-        # for i in range(len(ring_radii)-1,-1,-1): #iterate through each radii
-        #     DeltalessR=circle_counts[i]
-        #     DeltaR=ring_counts[i]
-        #     sums.append(DeltalessR-DeltaR) #Delta Sigmas for each ring-circle pair
-        # sums=np.array(sums)
-        
+
         sums = np.array([DeltalessR - DeltaR for DeltalessR, DeltaR in zip(circle_counts, ring_counts)])
-            # data2 = {'Ring Radii': ring_radii[::-1], 'SigmaDelta(R)': sums} #a really useless variable in here
-            # offset_sigmas[offset_num]=np.array(sums)
-        
-        # offset_weights=list(weights[k])
-        # weighted_average_dsigma=np.average(offset_sigmas,axis=0,weights=offset_weights)
-        # with open(f'new-test/{bin}big05c(H70).txt', 'a+') as f: #each row is DeltaSigma of single lense
-        #     np.savetxt(f, [sums], fmt='%f', newline='\n')
-    
+
     
         DeltaSigmas=np.add(DeltaSigmas,np.array(sums))
         num+=1
-        
-        # plt.plot(ring_radii, sums, linewidth=0.1)
-        # fig, axes = plt.subplots(nrows=2, ncols=1)
-    
-        # # Plot the first graph on the left subplot
-        # axes[0].plot(data['Ring Radii'],data['Delta(R)'])
-        # axes[0].set_xlabel('kpc')
-        # axes[0].set_ylabel('sigma(R)')
-    
-        
-        # # Plot the second graph on the right subplot
-        # axes[1].plot(data2['Ring Radii'],data2['SigmaDelta(R)'])
-        # axes[1].set_xlabel('kpc')
-        # axes[1].set_ylabel('DeltaSigma')
-    
-        # fig.suptitle('mpp=%.2e, n=%.3e, t=%.2f, rings=%i'%(mass_per_point, n_points,  t, len(ring_radii)))
-    
-        # plt.show()
-    
+
     t=time.time() - debug_start
     print(
         f"Finished calculating {num} sat after",
@@ -191,50 +143,46 @@ for bin in bins:
     )
     avgDsigma=DeltaSigmas/len(lenses) #average Delta Sigma of all all lenses
     table=np.column_stack((ring_radii,avgDsigma[0]))
-    np.savetxt(f'new-test/{bin}(H70)_notext.txt', table, delimiter='\t', fmt='%f') #save average delta sigma
-    # plt.vlines(np.mean(dist_file['R0']) * 1000 * 1.429, -2e8, 2e8, color='r')
-    # print(np.mean(lenses['R'])*1.429 * 1000)
-    # plt.vlines(np.mean(lenses['R']) * 1000 * 1.429, -2e8, 2e8, color='r')
-    # plt.plot(ring_radii,avgDsigma[0], color='black', linewidth=0.5, linestyle='--')
-    # plt.show()
+    # np.savetxt(f'new-test/{bin}(H70)(1).txt', table, delimiter='\t', fmt='%f') #save average delta sigma
+    
+    f = interp1d(ring_radii, avgDsigma[0], kind='cubic')
+    halo_dSigma=f(rp*1000)
+    return halo_dSigma/A
     
     #%%
     
-    # data_path = 'C:/catalogs'        
-    # df = pd.read_csv(data_path+f'/roman_esd_70ShapePipe_redmapper_clusterDist{lowlim*1.429}_randomsTrue_1.csv')
-    # ds = (df['ds']).values
-    # rp = df['rp']
-    # ds_err=df['ds_err']
-    
-    fig, axes = plt.subplots(nrows=1, ncols=1)
-    
-    # Plot the second graph on the right subplot
-    # axes.errorbar(rp, ds, ds_err, fmt='o', markerfacecolor='none', markeredgecolor='k', markeredgewidth=2)
-    axes.plot(ring_radii/1000,avgDsigma[0]/1000000)
-    axes.set_xlabel('kpc')
-    axes.set_ylabel('avg DeltaSigma')
-    
-    
-    # plt.show()
-    ABC=avgDsigma[0]
-    #old plots for visualizations :
-            
-    # with plt.rc_context({"axes.grid": False}):
-    #     fig, ax = plt.subplots(dpi=100)
-    #     img = ax.hexbin(random_radii_x, random_radii_y, gridsize=100, bins="log")
-    #     ax.plot(0, 0, "r+")
-    
-    #     for radius in ring_radii:
-    #         circle = plt.Circle((sat_x, sat_y), radius, edgecolor='red', facecolor='none')
-    #         ax.add_patch(circle)
-        
-    #     # ax.set_ylim(-radius, radius)
-    #     # ax.set_xlim(-radius, radius)
-    #     fig.colorbar(img)
-    #     ax.set_aspect("equal")
-    #     # ax.set_title(f"{len(multi_lenses)} halos")
-    #     plt.show()
-                
-        
 
 
+data_path = 'C:/catalogs'        
+df = pd.read_csv(data_path+f'/roman_esd_70ShapePipe_redmapper_clusterDist{lowlim}_randomsTrue_1.csv')
+ds = (df['ds']).values
+ds = ds[-9:]
+rp = (df['rp']).values
+rp = rp[-9:]
+ds_err=(df['ds_err']).values
+ds_err = ds_err[-9:]
+
+init=np.array([18000, 2])
+
+
+popt, pcov = curve_fit(halo, rp, ds, p0=init, sigma=ds_err, absolute_sigma=True,
+                       method='dogbox')
+
+A, c= popt
+
+fit = halo(rp, A, c)
+
+
+#%%
+
+
+fig, axes = plt.subplots(nrows=1, ncols=1)
+
+# Plot the second graph on the right subplot
+axes.errorbar(rp, ds, ds_err, fmt='o', markerfacecolor='none', markeredgecolor='k', markeredgewidth=2)
+axes.plot(rp,fit)
+axes.set_xlabel('kpc')
+axes.set_ylabel('avg DeltaSigma')
+
+
+plt.show()

@@ -15,8 +15,11 @@ from NFW_funcs import quick_MK_profile
 import pandas as pd
 from scipy.interpolate import interp1d
 from tqdm import trange
-import matplotlib as mpl
-mpl.rcParams['figure.dpi'] = 300
+
+from astropy.coordinates import SkyCoord
+from astropy.cosmology import FlatLambdaCDM
+
+
 
 def random_points(halo_mass,
                       halo_z,
@@ -70,13 +73,6 @@ def random_points(halo_mass,
         # interp_enclosed_masses = halo_profile.enclosedMass(interp_radii)
     # Correct delta sigmas and surface densities at r=0 to be zero
     interp_delta_sigmas[0] = 0.0
-    
-    #!!!
-    plt.plot(interp_radii[1:], interp_delta_sigmas[1:], linewidth=1, c='blue', alpha =0.5,
-             linestyle='--')
-    
-    
-    #!!!
     interp_surface_densities[0] = 0.0
     interp_2d_encl_masses = (
         np.pi * interp_radii**2 * (interp_delta_sigmas + interp_surface_densities)
@@ -118,25 +114,32 @@ params = {"flat": True, "H0": 70, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns"
 cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
-bins=['0609'] #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
+cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)
+
+bins=['0609', '0306', '0103'] #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
 # bins=[ '0103'] #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
 
 for bin in bins:
+    
 
     if bin=='0609':
         lowlim=0.6
         highlim=0.9
+        scale = 0.018
     elif bin=='0306':
         lowlim=0.3
         highlim=0.6
+        scale = 0.01
     elif bin=='0103':
         lowlim=0.1
-        highlim=0.3 
+        highlim=0.3
+        scale = 0.008
         
 
     lenses = Table.read("C:/catalogs/members_n_clusters_masked.fits") #RedMaPPer catalog -
     #Combined by myself with host halo masses and redshifts - email me if you want it
     dist_file=Table.read(f'C:/catalogs/{bin}_members_dists.fits')
+    cluster_file = Table.read(f'C:/catalogs/clusters_w_centers.fit')
     
     
     #filter lenses that are in a distance bin. You can also filter by membership probability and redshift
@@ -169,8 +172,8 @@ for bin in bins:
     
         
     halo_dict={} # a dictionary for each host halo, so we don't calculate same thing repeatedly
-    lenses = lenses[:1000]
-    dist_file = dist_file[:1000]
+    # lenses = lenses[:1000]
+    # dist_file = dist_file[:1000]
     
 
     for s in trange(len(lenses)): #iterate through each lens
@@ -178,24 +181,24 @@ for bin in bins:
         
         if sat['ID'] not in halo_dict: #check if M-C was calculated for this ID (host halo ID)
             halo_dict={} #empty the dictionary
-            # c=concentration.concentration(
-            #     M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
-            # ) #calculate concentration using colossus
+            c=concentration.concentration(
+                M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
+            ) #calculate concentration using colossus
             
             # c = 4.67*np.power((sat['M_halo']/(1e14*1.429)), -0.11)
             
-            if 0.08<sat['Z_halo']<=0.35:
-                C0 = 5.119
-                gamma = 0.205
-                M = sat['M_halo']
-                M0 = np.power(10, 14.083)
-            else:
-                C0 = 4.875
-                gamma = 0.221
-                M = sat['M_halo']
-                M0 = np.power(10, 13.750)
+            # if 0.08<sat['Z_halo']<=0.35:
+            #     C0 = 5.119
+            #     gamma = 0.205
+            #     M = sat['M_halo']
+            #     M0 = np.power(10, 14.083)
+            # else:
+            #     C0 = 4.875
+            #     gamma = 0.221
+            #     M = sat['M_halo']
+            #     M0 = np.power(10, 13.750)
                 
-            c = C0 * np.power(M/1e12,-gamma) * (1 + np.power(M/M0, 0.4))
+            # c = C0 * np.power(M/1e12,-gamma) * (1 + np.power(M/M0, 0.4))
             
             random_radii_x, random_radii_y = random_points(sat['M_halo'],
                                                               #here I multiplied by 1.429 cuz I calculated
@@ -213,8 +216,36 @@ for bin in bins:
             
             random_radii_x, random_radii_y = halo_dict[sat['ID']] #next lenses will use first M-C coordinates
             
+        #get BCG cluster centers
+        Ra0 = cluster_file['RA0deg'][cluster_file['ID'] == sat['ID']]
+        Dec0 = cluster_file['DE0deg'][cluster_file['ID'] == sat['ID']] 
         
-        sat_x = dist_file[s]['R0'] * 1000 * 1.429 * 0 #Mpc*1000 convert coords to kpc
+        #get current satellite coords
+        Ra_sat = sat['RAJ2000']
+        De_sat = sat['DEJ2000']
+        
+
+        radii = np.random.rayleigh(scale, size=1)
+
+        # Generate random angles uniformly between 0 and 2*pi
+        angles = np.random.uniform(0, 2 * np.pi, size=1)
+        
+        Ra_random = Ra0 + radii * np.cos(angles)  # Random RA values around BCG
+        Dec_random = Dec0 + radii * np.sin(angles)  # Random Dec values around BCG
+
+        # Create SkyCoord objects for coordinates of cluster center and satellite galaxy
+        center = SkyCoord(ra=Ra_random, dec=Dec_random, frame='icrs', unit="deg")
+        satellite = SkyCoord(ra=Ra_sat, dec=De_sat, frame='icrs', unit="deg")
+
+        # Calculate the angular separation in arcseconds
+        sep = center.separation(satellite)
+
+        # Convert angular separation to physical distance in kpc using RedMapper cosmology
+        arcsec_per_kpc = cosmo_dist.arcsec_per_kpc_proper(sat['Z_halo'])
+        sat_x = (sep.arcsecond/arcsec_per_kpc.value) * 1.429 #distance in our cosmology
+        
+        
+        # sat_x = dist_file[s]['R0'] * 1000 * 1.429 #Mpc*1000 convert coords to kpc
         # sat_x = sat['R'] * 1000 * 1.429 #Mpc*1000 convert coords to kp
         sat_y = 0
         
@@ -255,13 +286,10 @@ for bin in bins:
     )
     avgDsigma=DeltaSigmas/len(lenses) #average Delta Sigma of all all lenses
     table=np.column_stack((ring_radii,avgDsigma[0]))
-    # np.savetxt(f'new-test/{bin}C_Xu.txt', table, delimiter='\t', fmt='%f') #save average delta sigma
+    np.savetxt(f'new-test/{bin}_rayleigh.txt', table, delimiter='\t', fmt='%f') #save average delta sigma
     # plt.vlines(np.mean(dist_file['R0']) * 1000 * 1.429, -2e8, 2e8, color='r')
     # print(np.mean(lenses['R'])*1.429 * 1000)
     # plt.vlines(np.mean(lenses['R']) * 1000 * 1.429, -2e8, 2e8, color='r')
-    plt.plot(ring_radii[1:],avgDsigma[0,1:], color='r', linewidth=1.8, linestyle='-',
-             label =f'{len(lenses)} - avg dsigma 0 offset')
-    plt.legend()
-    plt.xlim(0,4000)
+    plt.plot(ring_radii,avgDsigma[0]/1e6, color='black', linewidth=0.5, linestyle='--')
     plt.show()
     

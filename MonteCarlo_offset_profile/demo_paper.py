@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jun 12 16:38:03 2024
+
+@author: romix
+"""
+
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -5,6 +12,8 @@ from astropy.table import Table
 from colossus.cosmology import cosmology
 from NFW_funcs import quick_MK_profile
 from colossus.halo import concentration, profile_nfw
+import matplotlib as mpl
+mpl.rcParams['figure.dpi'] = 200
 
 params = {"flat": True, "H0": 100, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
 cosmology.addCosmology("737", params)
@@ -13,8 +22,8 @@ cosmo = cosmology.setCosmology("737")
 lenses = Table.read("C:/catalogs/members_n_clusters_masked.fits")
 #Combined by myself with host halo masses and redshifts - email me if you want it
 
-lowlim=0.3
-highlim=0.6
+lowlim=0.6
+highlim=0.9
 #filter lenses that are in a distance bin. You can also filter by membership probability and redshift
 data_mask = (
         (lenses["R"] >= lowlim)
@@ -25,30 +34,34 @@ data_mask = (
     )
 lenses = lenses[data_mask] #updated table of lenses
 cdf_resolution=1000 #interpolation resulotion, i.e. number of points for probability distribution func.
-mass_per_point = 1098372.008822474*10000 #arbitrary number, Mass/mpp = number of points for M-C
+mass_per_point = 1098372.008822474*1000 #arbitrary number, Mass/mpp = number of points for M-C
 
-start_bin=0.01 * 1.429 #first ring lens-centric disatnce Mpc
-end_bin=1.5 * 1.429 #final ring lens-centric distance
-ring_incr=0.02 #distance between rings
+# start_bin=0.01 * 1.429 #first ring lens-centric disatnce Mpc
+start_bin = 0.002 * 1.429
+# end_bin=1.5 * 1.429 #final ring lens-centric distance
+end_bin=2.5 * 1.429 #final ring lens-centric distance
+ring_incr=0.02 * 1.429 #distance between rings
 ring_num=round((end_bin-start_bin)/ring_incr) #number of rings
 ring_radii = np.linspace(start_bin, end_bin, ring_num+1) * 1000 #Mpc*1000=kpc, radii of all rings in kps
-threshold=(ring_incr/2*100) #the same small width for each ring.
+# threshold=ring_incr/2*100 #the same small width for each ring.
+threshold=ring_incr/4*100 #the same small width for each ring.
+# threshold = 0.5
 
 mdef="200m" #cosmological mass definition 
 
 DeltaSigmas=np.zeros((1, len(ring_radii))) #np array for all delta sigma measurments
 
-sat=lenses[6]
+sat=lenses[600]
 
 #%%
 c=concentration.concentration(
-    M=sat['M_halo'], mdef="200m", z=2, model="duffy08"
+    M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
 ) #calculate concentration using colossus
 
 random_radii_x, random_radii_y = quick_MK_profile(sat['M_halo'],
                                                   #here I multiplied by 1.429 cuz I calculated
                                                   #masses for H=70 cosmology
-                                                  2,
+                                                  sat['Z_halo'],
                                                   mass_per_point,
                                                   c,
                                                   "duffy08",
@@ -111,31 +124,31 @@ for i in range(len(ring_radii)):
     
     circle_counts[i] = np.sum(circle_mask)*mass_per_point/(np.pi*(ring_radii[i]- threshold)**2)
     
-    fig, axs = plt.subplots(1, 2, figsize=(12, 4))
-    axs[0].scatter(random_radii_x, random_radii_y, s=0.001, alpha=0.4)
-    axs[0].scatter(random_radii_x[circle_mask], random_radii_y[circle_mask], s=0.001, c='red')
-    axs[0].scatter(random_radii_x[ring_mask], random_radii_y[ring_mask], s=0.001, c='k')
-    axs[0].plot(0, 0, "b+")
-    axs[0].plot(sat_x, sat_y, "k+")
-    # axs[0].set_title('Scatter Plot')
-    # axs[0].set_xlabel('X-axis')
-    # axs[0].set_ylabel('Y-axis')
-    axs[0].set_aspect('equal', adjustable='box')
+    # fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+    # axs[0].scatter(random_radii_x, random_radii_y, s=0.001, alpha=0.4)
+    # axs[0].scatter(random_radii_x[circle_mask], random_radii_y[circle_mask], s=0.001, c='red')
+    # axs[0].scatter(random_radii_x[ring_mask], random_radii_y[ring_mask], s=0.001, c='k')
+    # axs[0].plot(0, 0, "b+")
+    # axs[0].plot(sat_x, sat_y, "k+")
+    # # axs[0].set_title('Scatter Plot')
+    # # axs[0].set_xlabel('X-axis')
+    # # axs[0].set_ylabel('Y-axis')
+    # axs[0].set_aspect('equal', adjustable='box')
     
-    axs[1].plot(ring_radii, ring_counts, label=r'$\Sigma$(R)', ls='--')
-    axs[1].plot(ring_radii, circle_counts, label=r'$\Sigma$(<R)', ls='--')
-    axs[1].plot(ring_radii, circle_counts-ring_counts, label=r'Delta $\Sigma$')
-    # axs[1].set_title('Cumulative Counts')
-    axs[1].set_xlabel('R (kpc)')
-    axs[1].set_ylabel('dsigma')
-    axs[1].set_xlim([ring_radii[0], ring_radii[-1]])
-    axs[1].legend()
+    # axs[1].plot(ring_radii, ring_counts, label=r'$\Sigma$(R)', ls='--')
+    # axs[1].plot(ring_radii, circle_counts, label=r'$\Sigma$(<R)', ls='--')
+    # axs[1].plot(ring_radii, circle_counts-ring_counts, label=r'Delta $\Sigma$')
+    # # axs[1].set_title('Cumulative Counts')
+    # axs[1].set_xlabel('R (kpc)')
+    # axs[1].set_ylabel('dsigma')
+    # axs[1].set_xlim([ring_radii[0], ring_radii[-1]])
+    # axs[1].legend()
     
-    # Adjust layout to prevent overlap
-    plt.tight_layout()
+    # # Adjust layout to prevent overlap
+    # plt.tight_layout()
     
-    # Show the plot
-    plt.show()
+    # # Show the plot
+    # plt.show()
 
 
 
@@ -149,3 +162,28 @@ for i in range(len(ring_radii)-1,-1,-1): #iterate through each radii
 # t=time.time() - debug_start
 # print(num)
 DeltaSigmas=np.add(DeltaSigmas,np.array(sums))
+#%%
+with plt.rc_context({"axes.grid": False}):
+    fig, ax = plt.subplots(dpi=100)
+    # img = ax.hexbin(random_radii_x, random_radii_y, gridsize=300, bins="log", cmap='plasma')
+    # ax.plot(0, 0, "r+")
+
+    for radius in ring_radii:
+        circle = plt.Circle((sat_x, sat_y), radius, edgecolor='k', facecolor='none', linewidth = 0.8)
+        # circle = plt.Circle((sat_x, sat_y), radius+threshold, edgecolor='b', facecolor='none', linewidth = 0.1)
+        # circle = plt.Circle((sat_x, sat_y), radius-threshold, edgecolor='r', facecolor='none', linewidth = 0.1)
+        ax.add_patch(circle)
+    
+    # ax.set_ylim(-radius, radius)
+    # ax.set_xlim(-radius, radius)
+    # fig.colorbar(img)
+    ax.set_aspect("equal")
+    # ax.set_title(f"{len(multi_lenses)} halos")
+    ax.set_xlabel('R (kpc)')
+    ax.set_ylabel('R (kpc)')
+    ax.set_xticks([ 800, 1200])
+    ax.set_xlim([800,1200])
+    # ax.set_xlim([-100,100])
+    ax.set_yticks([ -100, 100])
+    ax.yaxis.set_label_coords(-0.1, 0.5)
+    # plt.savefig('demo.png', bbox_inches='tight', dpi=300)

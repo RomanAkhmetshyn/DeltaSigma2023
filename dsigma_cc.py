@@ -47,8 +47,10 @@ from dsigma.stacking import excess_surface_density
 ######### hardcoded CONFIG. Set any paths you need here to your machine #########
 lensfit_file = "<path to lens fit catalog>"
 # shapepipe_file = "D:/unions_test7000.fits"
-shapepipe_file = "/home/romanakh/projects/def-mjhudson/romanakh/unions_shapepipe_2022_v1.0.fits"
-calib_file = "/home/romanakh/projects/def-mjhudson/romanakh/calib_ShapePipe_v1.1.fits"
+# shapepipe_file = "/home/romanakh/projects/def-mjhudson/romanakh/unions_shapepipe_2022_v1.0.fits"
+shapepipe_file = "/home/romanakh/projects/def-mjhudson/romanakh/unions_shapepipe_2022_v1.3.fits"
+# calib_file = "/home/romanakh/projects/def-mjhudson/romanakh/calib_ShapePipe_v1.1.fits"
+calib_file = "/home/romanakh/projects/def-mjhudson/romanakh/calib_nz_shapepipe_1500_v1.3.fits"
 
 # redmapper_file = "/home/romanakh/projects/def-mjhudson/romanakh/dr8_redmapper_v6.3.1_members_masked.fits"
 redmapper_file = "/home/romanakh/projects/def-mjhudson/romanakh/redmapper_mnc_allz.fits"
@@ -58,6 +60,7 @@ randoms_file = "/home/romanakh/projects/def-mjhudson/romanakh/dr8_run_redmapper_
 
 # radius_bins = np.linspace(0.01, 1.5, 16)  # Mpc, almost replicate Li+2016
 radius_bins=[0.01, 0.05, 0.10, 0.15, 0.20, 0.25, 0.35, 0.45, 0.55, 0.65, 0.792, 0.93, 1.075,  1.217, 1.358, 1.5]
+radius_bins = [num * 1.429 for num in radius_bins]
 cosmology = FlatLambdaCDM(H0=70, Om0=0.3)
 num_jackknife_regions = 100
 distance_threshold = 10 # in degrees. Used for JK. should be > typical distance between lenses, 
@@ -217,7 +220,7 @@ def main(
         #
         lenses_mask = (
             (lenses["R"] >= cluster_dist_bin)
-            & (lenses["R"] < cluster_dist_bins_end[cluster_dist_bin])
+            & (lenses["R"]< cluster_dist_bins_end[cluster_dist_bin])
             & (lenses["PMem"] > 0.8)
             # & (lenses["ZSPEC"] > -1)
         )

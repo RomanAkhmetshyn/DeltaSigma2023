@@ -22,6 +22,9 @@ np.import_array()
 # Compile Typing Definitions
 ctypedef np.float64_t F64
 from colossus.cosmology import cosmology
+params = {"flat": True, "H0": 70, "Om0": 0.3, "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
+cosmology.addCosmology("737", params)
+cosmo = cosmology.setCosmology("737")
 
 
 
@@ -345,6 +348,7 @@ def sample_nfw(
 def quick_MK_profile(double halo_mass,
                      double halo_z,
                      double mass_per_point,
+                     double c,
                      str concentration_model="duffy08",
                      str mdef="200m",
                      int cdf_resolution=1000):
@@ -375,9 +379,9 @@ def quick_MK_profile(double halo_mass,
 
     """
     
-    c=concentration.concentration(
-        M=halo_mass, mdef="200m", z=halo_z, model=concentration_model
-    ) #calculate concentration using colossus
+    # c=concentration.concentration(
+    #     M=halo_mass, mdef="200m", z=halo_z, model=concentration_model
+    # ) #calculate concentration using colossus
 
     halo_profile = profile_nfw.NFWProfile(M=halo_mass, c=c, z=halo_z, mdef=mdef) #build host halo NFW
 
@@ -387,30 +391,31 @@ def quick_MK_profile(double halo_mass,
     # Determine CDF of projected (2D) NFW enclosed mass
     #CDF - cumulative distribution function
     #
-    interp_radii = np.linspace(0, virial_radius, cdf_resolution) #distance for cdf
+    interp_radii = np.linspace(0, virial_radius*4, cdf_resolution) #distance for cdf
     
 
     # Temporarily ignore division by zero and overflow warnings
     with np.errstate(divide="ignore", over="ignore"):
         interp_delta_sigmas = halo_profile.deltaSigma(interp_radii)
         interp_surface_densities = halo_profile.surfaceDensity(interp_radii)
+        # interp_enclosed_masses = halo_profile.enclosedMass(interp_radii)
     # Correct delta sigmas and surface densities at r=0 to be zero
     interp_delta_sigmas[0] = 0.0
     interp_surface_densities[0] = 0.0
     interp_2d_encl_masses = (
         np.pi * interp_radii**2 * (interp_delta_sigmas + interp_surface_densities)
     )
+    # interp_2d_encl_masses = interp_enclosed_masses
 
 
-
-    n_points = round(interp_2d_encl_masses[-1:][0] / (mass_per_point))
+    n_points = round(interp_2d_encl_masses[-1] / (mass_per_point)) 
     print("For each offset, will generate", n_points, "points for this halo")
     #
     # Make 1D interpolator for this halo
     #
 
     interp_normed_2d_encl_masses = interp1d(
-        interp_2d_encl_masses / interp_2d_encl_masses[-1:][0],
+        interp_2d_encl_masses / interp_2d_encl_masses[-1], 
         interp_radii,
         assume_sorted=True,
     )
@@ -419,12 +424,11 @@ def quick_MK_profile(double halo_mass,
 
     #
     # Generate random points for this halo + offset combination
-    #
     rng = np.random.default_rng()
-    offset=0
-    offset_angle = rng.uniform(0, 2 * np.pi)
-    offset_x = offset * np.cos(offset_angle)
-    offset_y = offset * np.sin(offset_angle)
+    # offset=0
+    # offset_angle = rng.uniform(0, 2 * np.pi)
+    # offset_x = offset * np.cos(offset_angle)
+    # offset_y = offset * np.sin(offset_angle)
     #
     random_cdf_yvals = rng.uniform(0, 1, size=n_points)
     # print("Begin interpolation")
@@ -432,8 +436,8 @@ def quick_MK_profile(double halo_mass,
     random_radii = interp_normed_2d_encl_masses(random_cdf_yvals)
 
     random_azimuths = rng.uniform(0, 2 * np.pi, size=n_points)
-    random_radii_x = random_radii * np.cos(random_azimuths) + offset_x
-    random_radii_y = random_radii * np.sin(random_azimuths) + offset_y
+    random_radii_x = random_radii * np.cos(random_azimuths) 
+    random_radii_y = random_radii * np.sin(random_azimuths) 
     # print("Begin extending list")
 
     #if return_xy:

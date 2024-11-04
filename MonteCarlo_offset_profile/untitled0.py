@@ -1,57 +1,62 @@
-
-from astropy.coordinates import SkyCoord
-import astropy.cosmology
 import numpy as np
-from astropy.table import Table, vstack, Column
-from tqdm import trange
 import matplotlib.pyplot as plt
+import pandas as pd
 
-H0=100
-cosmo = astropy.cosmology.FlatLambdaCDM(H0=H0, Om0=0.3, Ob0=0.049)
-clusters= Table.read("C:/catalogs/clusters_w_centers.fit")
+profile_folder ='new-test/'
+
+profiles = [
+    '0103(H70)_ext(R0).txt',
+    # '0103(H70)_ext(R1).txt',
+    '0306(H70)_ext(R0).txt',
+    # '0306(H70)_ext(R1).txt',
+    '0609(H70)_ext(R0).txt',
+    # '0609(H70)_ext(R1).txt',
+    # '0103(H70)_(R0)colossus.txt',
+    # '0306(H70)_(R0)colossus.txt',
+    # '0609(H70)_(R0)colossus.txt',
+    # '0103C_Xu.txt',
+    # '0306C_Xu.txt',
+    # '0609C_Xu.txt',
+    # '0103(H70)_ext(R1).txt',
+    # '0306(H70)_ext(R1).txt',
+    '0103_rayleigh.txt',
+    '0306_rayleigh.txt',
+    '0609_rayleigh.txt',
+]
 
 
-centers=[['RA0deg', 'DE0deg', 'PCen0'],
-         ['RA1deg', 'DE1deg', 'PCen1']]
+plt.figure(figsize=(8, 6))
+for i, file in enumerate(profiles):
+    halo = np.genfromtxt(profile_folder + file)
+    R = halo[1:, 0] / 1000
+    DS = halo[1:, 1] / 1000000
+    
+    if 'rayleigh' in file:
+        plt.plot(R, DS*0.3, linestyle='--', c='blue', alpha=0.6)
+    else:
+        plt.plot(R, DS, c='k')
 
 
-distances=np.zeros(len(clusters))
-for row in trange(len(clusters)):
-    
-    z=clusters[row]['zlambda']
-    
-    # row_values=[cluster_ID, sats[row]['R']]
-    
-    # selected_rows = clusters[clusters['ID'] == cluster_ID]
-    
-        
-    
-    bcg1_RA = clusters[row][centers[0][0]]
-    bcg1_Dec = clusters[row][centers[0][1]]
-    bcg2_RA = clusters[row][centers[1][0]]
-    bcg2_Dec = clusters[row][centers[1][1]]
+# plt.text(1.3, 82, '0.1 - 0.3', fontsize=10, color='black', ha='right', va='center')
+# plt.text(1.9, 50, '0.3 - 0.6', fontsize=10, color='black', ha='right', va='center')
+# plt.text(1.6, -12, '0.6 - 0.9', fontsize=10, color='black', ha='right', va='center')
 
-    
+plt.text(3.5, 40, 'previous offset halo model', fontsize=16, color='black', ha='right', va='center')
+plt.text(3.5, -10, 'halo model with rayleigh offset', fontsize=16, color='blue', ha='right', va='center')
 
-    
-    c1 = SkyCoord(bcg1_RA, bcg1_Dec, frame='icrs', unit="deg") 
-    c2 = SkyCoord(bcg2_RA, bcg2_Dec, frame='icrs', unit="deg") 
-    sep = c1.separation(c2)
+data_path = 'C:/scp'  
+df = pd.read_csv(data_path+'/roman_esd_70ShapePipe_redmapper_clusterDist0.1_randomsTrue_1.csv')
+ds = (df['ds']).values
+rp = (df['rp']).values
+ds_err=df['ds_err']
 
-    
-    arcsec_per_kpc=cosmo.arcsec_per_kpc_proper(z)
-    distances[row]=(sep.arcsecond/arcsec_per_kpc.value)
-    
-#%%
-plt.hist(distances, bins=80)
-avg=np.mean(distances)
-med=np.median(distances)
-plt.xlabel('distance between bcg1 and bcg2 [kpc]')
-plt.ylabel('counts')
-plt.title(f'mean distance: {avg:.2f}, median: {med:.2f} kpc')
+plt.ylabel(r'$\Delta \Sigma (R) \, [M_\odot / \mathrm{pc}^2]$', fontsize=12, labelpad=0)
+plt.xlabel(r'$R (\mathrm{Mpc})$', fontsize=12)
+      
+# plt.errorbar(rp, ds, ds_err, fmt='o',label='dsigma Data', 
+#              markerfacecolor='none', markeredgecolor='k', markeredgewidth=2)
+plt.xlim(0, 3.5)
+plt.grid()
+# plt.legend()
+plt.savefig('halo_models_rayleigh.png', bbox_inches='tight', dpi =300)
 plt.show()
-        
-    
-    
-
-
