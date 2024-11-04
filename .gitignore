@@ -22,7 +22,6 @@ data/dr8_redmapper_v6.3.1_members_n_clusters_masked.fits
 *.png
 *.sub
 *.sh
-*.fits
 *.exp
 *.lib
 *.obj
