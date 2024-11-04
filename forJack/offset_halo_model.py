@@ -183,6 +183,8 @@ for bin in bins:
                 M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
             )  # calculate concentration using colossus
 
+            time_rand = time.time()
+
             random_radii_x, random_radii_y = random_points(sat['M_halo'],
                                                            # here I multiplied by 1.429 cuz I calculated
                                                            # masses for H=70 cosmology
@@ -196,10 +198,14 @@ for bin in bins:
             # add halo to the dictionary
             halo_dict[sat['ID']] = [random_radii_x, random_radii_y]
 
+            print('calculated random points in: ', time.time() - time_rand)
+
         else:
 
             # next lenses will use first M-C coordinates
             random_radii_x, random_radii_y = halo_dict[sat['ID']]
+
+        # time_coords = time.time()
 
         # get BCG cluster centers
         Ra0 = cluster_file['RA0deg'][cluster_file['ID'] == sat['ID']]
@@ -235,6 +241,10 @@ for bin in bins:
         # sat_x = sat['R'] * 1000 * 1.429 #Mpc*1000 convert coords to kp
         sat_y = 0
 
+        # print('calculated offset in: ', time.time() - time_coords)
+
+        # time_area = time.time()
+
         S = [np.pi*((r+threshold)**2-(r-threshold)**2)
              for r in ring_radii]  # area of rings
         # Calculate the distances for all random points at once
@@ -268,6 +278,9 @@ for bin in bins:
                         DeltaR in zip(circle_counts, ring_counts)])
 
         DeltaSigmas = np.add(DeltaSigmas, np.array(sums))
+
+        # print('calculated area differences and added it in: ',
+        #       time.time() - time_area)
 
     t = time.time() - debug_start
     print(
