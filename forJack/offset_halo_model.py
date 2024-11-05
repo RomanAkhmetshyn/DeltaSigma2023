@@ -16,6 +16,7 @@ from tqdm import trange
 
 from astropy.coordinates import SkyCoord
 from astropy.cosmology import FlatLambdaCDM
+from scipy.integrate import cumulative_trapezoid
 
 
 def random_points(halo_mass,
@@ -24,7 +25,8 @@ def random_points(halo_mass,
                   c,
                   concentration_model="duffy08",
                   mdef="200m",
-                  cdf_resolution=1000):
+                  cdf_resolution=1000,
+                  trapz_mode=False):
     """
 
     This function calculates random points that follow NFW profile
@@ -68,36 +70,47 @@ def random_points(halo_mass,
 
     # Temporarily ignore division by zero and overflow warnings
     with np.errstate(divide="ignore", over="ignore"):
-        interp_delta_sigmas = halo_profile.deltaSigma(interp_radii)
+        if not trapz_mode:
+            interp_delta_sigmas = halo_profile.deltaSigma(interp_radii)
         interp_surface_densities = halo_profile.surfaceDensity(interp_radii)
         # interp_enclosed_masses = halo_profile.enclosedMass(interp_radii)
-    # Correct delta sigmas and surface densities at r=0 to be zero
-    interp_delta_sigmas[0] = 0.0
-    interp_surface_densities[0] = 0.0
-    interp_2d_encl_masses = (
-        np.pi * interp_radii**2 *
-        (interp_delta_sigmas + interp_surface_densities)
-    )
-    # interp_2d_encl_masses = interp_enclosed_masses
-
-    n_points = round(interp_2d_encl_masses[-1] / (mass_per_point))
-
-    #
-    # Make 1D interpolator for this halo
-    #
-
-    interp_normed_2d_encl_masses = interp1d(
-        interp_2d_encl_masses / interp_2d_encl_masses[-1],
-        interp_radii,
-        assume_sorted=True,
-    )
-
-    #
-    # Generate random points for this halo + offset combination
+        
     rng = np.random.default_rng()
+    if trapz_mode:
+        interp_surface_densities[0] = 0.0
+        cdf = cumulative_trapezoid(2*np.pi*interp_radii*interp_surface_densities, interp_radii, initial=0)
+        inverse_cdf = interp1d(cdf/cdf[-1], interp_radii, bounds_error=False, fill_value="extrapolate")
+        n_points = round(cdf[-1] / (mass_per_point))
+        random_values = np.random.rand(n_points)
+        random_radii = inverse_cdf(random_values)
 
-    random_cdf_yvals = rng.uniform(0, 1, size=n_points)
-    random_radii = interp_normed_2d_encl_masses(random_cdf_yvals)
+    else:
+        # Correct delta sigmas and surface densities at r=0 to be zero
+        interp_delta_sigmas[0] = 0.0
+        interp_surface_densities[0] = 0.0
+        interp_2d_encl_masses = (
+            np.pi * interp_radii**2 *
+            (interp_delta_sigmas + interp_surface_densities)
+        )
+        # interp_2d_encl_masses = interp_enclosed_masses
+
+        n_points = round(interp_2d_encl_masses[-1] / (mass_per_point))
+
+        #
+        # Make 1D interpolator for this halo
+        #
+
+        interp_normed_2d_encl_masses = interp1d(
+            interp_2d_encl_masses / interp_2d_encl_masses[-1],
+            interp_radii,
+            assume_sorted=True,
+        )
+
+        #
+        # Generate random points for this halo + offset combination
+
+        random_cdf_yvals = rng.uniform(0, 1, size=n_points)
+        random_radii = interp_normed_2d_encl_masses(random_cdf_yvals)
 
     random_azimuths = rng.uniform(0, 2 * np.pi, size=n_points)
     random_radii_x = random_radii * np.cos(random_azimuths)
