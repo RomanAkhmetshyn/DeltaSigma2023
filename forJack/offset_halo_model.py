@@ -74,12 +74,14 @@ def random_points(halo_mass,
             interp_delta_sigmas = halo_profile.deltaSigma(interp_radii)
         interp_surface_densities = halo_profile.surfaceDensity(interp_radii)
         # interp_enclosed_masses = halo_profile.enclosedMass(interp_radii)
-        
+
     rng = np.random.default_rng()
     if trapz_mode:
         interp_surface_densities[0] = 0.0
-        cdf = cumulative_trapezoid(2*np.pi*interp_radii*interp_surface_densities, interp_radii, initial=0)
-        inverse_cdf = interp1d(cdf/cdf[-1], interp_radii, bounds_error=False, fill_value="extrapolate")
+        cdf = cumulative_trapezoid(
+            2*np.pi*interp_radii*interp_surface_densities, interp_radii, initial=0)
+        inverse_cdf = interp1d(
+            cdf/cdf[-1], interp_radii, bounds_error=False, fill_value="extrapolate")
         n_points = round(cdf[-1] / (mass_per_point))
         random_values = np.random.rand(n_points)
         random_radii = inverse_cdf(random_values)
@@ -127,8 +129,9 @@ cosmo = cosmology.setCosmology("737")
 
 cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)  # cosmology for Rykoff
 
-bins = ['0609', '0306', '0103']
-# bins=[ '0103'] #input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
+# bins = ['0609', '0306', '0103']
+# input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
+bins = ['0103']
 
 for bin in bins:
 
@@ -207,7 +210,8 @@ for bin in bins:
                                                            c,
                                                            "duffy08",
                                                            "200m",
-                                                           cdf_resolution)
+                                                           cdf_resolution,
+                                                           trapz_mode=True)
 
             # add halo to the dictionary
             halo_dict[sat['ID']] = [random_radii_x, random_radii_y]
@@ -303,7 +307,7 @@ for bin in bins:
     )
     avgDsigma = DeltaSigmas/len(lenses)  # average Delta Sigma of all all lenses
     table = np.column_stack((ring_radii, avgDsigma[0]))
-    np.savetxt(f'{bin}_rayleigh.txt', table,
+    np.savetxt(f'{bin}_{scale}_rayleigh.txt', table,
                delimiter='\t', fmt='%f')  # save average delta sigma
 
     plt.plot(ring_radii, avgDsigma[0]/1e6,

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-profile_folder ='new-test/'
+profile_folder = 'new-test/'
 
 profiles = [
     '0103(H70)_ext(R0).txt',
@@ -30,7 +30,7 @@ for i, file in enumerate(profiles):
     halo = np.genfromtxt(profile_folder + file)
     R = halo[1:, 0] / 1000
     DS = halo[1:, 1] / 1000000
-    
+
     if 'rayleigh' in file:
         plt.plot(R, DS*0.3, linestyle='--', c='blue', alpha=0.6)
     else:
@@ -41,22 +41,26 @@ for i, file in enumerate(profiles):
 # plt.text(1.9, 50, '0.3 - 0.6', fontsize=10, color='black', ha='right', va='center')
 # plt.text(1.6, -12, '0.6 - 0.9', fontsize=10, color='black', ha='right', va='center')
 
-plt.text(3.5, 40, 'previous offset halo model', fontsize=16, color='black', ha='right', va='center')
-plt.text(3.5, -10, 'halo model with rayleigh offset', fontsize=16, color='blue', ha='right', va='center')
+plt.text(3.5, 40, 'previous offset halo model', fontsize=16,
+         color='black', ha='right', va='center')
+plt.text(3.5, -10, 'halo model with rayleigh offset',
+         fontsize=16, color='blue', ha='right', va='center')
 
-data_path = 'C:/scp'  
-df = pd.read_csv(data_path+'/roman_esd_70ShapePipe_redmapper_clusterDist0.1_randomsTrue_1.csv')
+data_path = 'C:/scp'
+df = pd.read_csv(
+    data_path+'/roman_esd_70ShapePipe_redmapper_clusterDist0.1_randomsTrue_1.csv')
 ds = (df['ds']).values
 rp = (df['rp']).values
-ds_err=df['ds_err']
+ds_err = df['ds_err']
 
-plt.ylabel(r'$\Delta \Sigma (R) \, [M_\odot / \mathrm{pc}^2]$', fontsize=12, labelpad=0)
+plt.ylabel(
+    r'$\Delta \Sigma (R) \, [M_\odot / \mathrm{pc}^2]$', fontsize=12, labelpad=0)
 plt.xlabel(r'$R (\mathrm{Mpc})$', fontsize=12)
-      
-# plt.errorbar(rp, ds, ds_err, fmt='o',label='dsigma Data', 
+
+# plt.errorbar(rp, ds, ds_err, fmt='o',label='dsigma Data',
 #              markerfacecolor='none', markeredgecolor='k', markeredgewidth=2)
 plt.xlim(0, 3.5)
 plt.grid()
 # plt.legend()
-plt.savefig('halo_models_rayleigh.png', bbox_inches='tight', dpi =300)
+plt.savefig('halo_models_rayleigh.png', bbox_inches='tight', dpi=300)
 plt.show()
