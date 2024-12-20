@@ -121,6 +121,7 @@ def random_points(halo_mass,
     return random_radii_x, random_radii_y
 
 
+np.random.seed(42)
 # setting global cosmology. Keep everything H=100, unless your data is different
 params = {"flat": True, "H0": 70, "Om0": 0.3,
           "Ob0": 0.049, "sigma8": 0.81, "ns": 0.95}
@@ -131,14 +132,14 @@ cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)  # cosmology for Rykoff
 
 # bins = ['0609', '0306', '0103']
 # input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
-bins = ['0103']
+bins = ['0609']
 
 for bin in bins:
 
     if bin == '0609':
         lowlim = 0.6
         highlim = 0.9
-        scale = 0.018
+        scales = np.linspace(0.001, 0.05, 15)
     elif bin == '0306':
         lowlim = 0.3
         highlim = 0.6
@@ -146,7 +147,8 @@ for bin in bins:
     elif bin == '0103':
         lowlim = 0.1
         highlim = 0.3
-        scale = 0.008  # scale of rayleigh distr
+        scale = 0.002  # scale of rayleigh distr
+        scale = 0.02
 
     # RedMaPPer catalog -
     lenses = Table.read("members_n_clusters_masked.fits")
@@ -187,129 +189,133 @@ for bin in bins:
     debug_start = time.time()  # timing the whole script
 
     halo_dict = {}  # a dictionary for each host halo, so we don't calculate same thing repeatedly
-    # lenses = lenses[:1000]
-    # dist_file = dist_file[:1000]
+    # lenses = lenses[:500]
+    # dist_file = dist_file[:500]
+    for scale in scales:
+        for s in trange(len(lenses)):  # iterate through each lens
+            sat = lenses[s]
 
-    for s in trange(len(lenses)):  # iterate through each lens
-        sat = lenses[s]
+            # check if M-C was calculated for this ID (host halo ID)
+            if sat['ID'] not in halo_dict:
+                halo_dict = {}  # empty the dictionary
+                c = concentration.concentration(
+                    M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
+                )  # calculate concentration using colossus
 
-        # check if M-C was calculated for this ID (host halo ID)
-        if sat['ID'] not in halo_dict:
-            halo_dict = {}  # empty the dictionary
-            c = concentration.concentration(
-                M=sat['M_halo'], mdef="200m", z=sat['Z_halo'], model="duffy08"
-            )  # calculate concentration using colossus
+                # time_rand = time.time()
 
-            time_rand = time.time()
+                random_radii_x, random_radii_y = random_points(sat['M_halo'],
+                                                               # here I multiplied by 1.429 cuz I calculated
+                                                               # masses for H=70 cosmology
+                                                               sat['Z_halo'],
+                                                               mass_per_point,
+                                                               c,
+                                                               "duffy08",
+                                                               "200m",
+                                                               cdf_resolution,
+                                                               trapz_mode=True)
 
-            random_radii_x, random_radii_y = random_points(sat['M_halo'],
-                                                           # here I multiplied by 1.429 cuz I calculated
-                                                           # masses for H=70 cosmology
-                                                           sat['Z_halo'],
-                                                           mass_per_point,
-                                                           c,
-                                                           "duffy08",
-                                                           "200m",
-                                                           cdf_resolution,
-                                                           trapz_mode=True)
+                # add halo to the dictionary
+                halo_dict[sat['ID']] = [random_radii_x, random_radii_y]
 
-            # add halo to the dictionary
-            halo_dict[sat['ID']] = [random_radii_x, random_radii_y]
+                # print('calculated random points in: ', time.time() - time_rand)
 
-            print('calculated random points in: ', time.time() - time_rand)
+            else:
 
-        else:
+                # next lenses will use first M-C coordinates
+                random_radii_x, random_radii_y = halo_dict[sat['ID']]
 
-            # next lenses will use first M-C coordinates
-            random_radii_x, random_radii_y = halo_dict[sat['ID']]
+            # time_coords = time.time()
 
-        # time_coords = time.time()
+            # get BCG cluster centers
+            Ra0 = cluster_file['RA0deg'][cluster_file['ID'] == sat['ID']]
+            Dec0 = cluster_file['DE0deg'][cluster_file['ID'] == sat['ID']]
 
-        # get BCG cluster centers
-        Ra0 = cluster_file['RA0deg'][cluster_file['ID'] == sat['ID']]
-        Dec0 = cluster_file['DE0deg'][cluster_file['ID'] == sat['ID']]
+            # get current satellite coords
+            Ra_sat = sat['RAJ2000']
+            De_sat = sat['DEJ2000']
 
-        # get current satellite coords
-        Ra_sat = sat['RAJ2000']
-        De_sat = sat['DEJ2000']
+            radii = np.random.rayleigh(scale, size=1)
 
-        radii = np.random.rayleigh(scale, size=1)
+            # Generate random angles uniformly between 0 and 2*pi
+            angles = np.random.uniform(0, 2 * np.pi, size=1)
 
-        # Generate random angles uniformly between 0 and 2*pi
-        angles = np.random.uniform(0, 2 * np.pi, size=1)
+            # Random RA values around BCG
+            Ra_random = Ra0 + radii * np.cos(angles)
+            # Random Dec values around BCG
+            Dec_random = Dec0 + radii * np.sin(angles)
 
-        Ra_random = Ra0 + radii * np.cos(angles)  # Random RA values around BCG
-        # Random Dec values around BCG
-        Dec_random = Dec0 + radii * np.sin(angles)
+            # Create SkyCoord objects for coordinates of cluster center and satellite galaxy
+            center = SkyCoord(ra=Ra_random, dec=Dec_random,
+                              frame='icrs', unit="deg")
+            satellite = SkyCoord(ra=Ra_sat, dec=De_sat,
+                                 frame='icrs', unit="deg")
 
-        # Create SkyCoord objects for coordinates of cluster center and satellite galaxy
-        center = SkyCoord(ra=Ra_random, dec=Dec_random,
-                          frame='icrs', unit="deg")
-        satellite = SkyCoord(ra=Ra_sat, dec=De_sat, frame='icrs', unit="deg")
+            # Calculate the angular separation in arcseconds
+            sep = center.separation(satellite)
 
-        # Calculate the angular separation in arcseconds
-        sep = center.separation(satellite)
+            # Convert angular separation to physical distance in kpc using RedMapper cosmology
+            arcsec_per_kpc = cosmo_dist.arcsec_per_kpc_proper(sat['Z_halo'])
+            sat_x = (sep.arcsecond/arcsec_per_kpc.value) * \
+                1.429  # distance in our cosmology
 
-        # Convert angular separation to physical distance in kpc using RedMapper cosmology
-        arcsec_per_kpc = cosmo_dist.arcsec_per_kpc_proper(sat['Z_halo'])
-        sat_x = (sep.arcsecond/arcsec_per_kpc.value) * \
-            1.429  # distance in our cosmology
+            # sat_x = dist_file[s]['R0'] * 1000 * 1.429 #Mpc*1000 convert coords to kpc
+            # sat_x = sat['R'] * 1000 * 1.429 #Mpc*1000 convert coords to kp
+            sat_y = 0
 
-        # sat_x = dist_file[s]['R0'] * 1000 * 1.429 #Mpc*1000 convert coords to kpc
-        # sat_x = sat['R'] * 1000 * 1.429 #Mpc*1000 convert coords to kp
-        sat_y = 0
+            # print('calculated offset in: ', time.time() - time_coords)
 
-        # print('calculated offset in: ', time.time() - time_coords)
+            # time_area = time.time()
 
-        # time_area = time.time()
+            S = [np.pi*((r+threshold)**2-(r-threshold)**2)
+                 for r in ring_radii]  # area of rings
+            # Calculate the distances for all random points at once
+            distances = np.sqrt((random_radii_x - sat_x)**2 +
+                                (random_radii_y - sat_y)**2)
 
-        S = [np.pi*((r+threshold)**2-(r-threshold)**2)
-             for r in ring_radii]  # area of rings
-        # Calculate the distances for all random points at once
-        distances = np.sqrt((random_radii_x - sat_x)**2 +
-                            (random_radii_y - sat_y)**2)
+            # Create an empty array to store the counts for each ring
+            # counts in the rings
+            ring_counts = np.zeros(len(ring_radii), dtype=np.int64)
+            # counts in enclosed circles
+            circle_counts = np.zeros(len(ring_radii), dtype=np.int64)
 
-        # Create an empty array to store the counts for each ring
-        # counts in the rings
-        ring_counts = np.zeros(len(ring_radii), dtype=np.int64)
-        # counts in enclosed circles
-        circle_counts = np.zeros(len(ring_radii), dtype=np.int64)
+            # Iterate over each ring radius and count the points within each ring
+            for i in range(len(ring_radii)):
+                mask = np.logical_and(ring_radii[i] - threshold <= distances,
+                                      distances <= ring_radii[i] + threshold)  # mask points that are within ring
 
-        # Iterate over each ring radius and count the points within each ring
-        for i in range(len(ring_radii)):
-            mask = np.logical_and(ring_radii[i] - threshold <= distances,
-                                  distances <= ring_radii[i] + threshold)  # mask points that are within ring
+                # get surface density in rings
+                ring_counts[i] = np.sum(mask)*mass_per_point/S[i]
 
-            # get surface density in rings
-            ring_counts[i] = np.sum(mask)*mass_per_point/S[i]
+            for i in range(len(ring_radii)):  # the same but iterate each circle
+                # mask = np.logical_and(0 <= distances, distances <= ring_radii[i] - threshold) #!!!
+                mask = np.logical_and(
+                    0 <= distances, distances <= ring_radii[i])  # !!!
 
-        for i in range(len(ring_radii)):  # the same but iterate each circle
-            # mask = np.logical_and(0 <= distances, distances <= ring_radii[i] - threshold) #!!!
-            mask = np.logical_and(
-                0 <= distances, distances <= ring_radii[i])  # !!!
+                # circle_counts[i] = np.sum(mask)*mass_per_point/(np.pi*(ring_radii[i]- threshold)**2) #!!!
+                circle_counts[i] = np.sum(
+                    mask)*mass_per_point/(np.pi*(ring_radii[i])**2)  # !!!
 
-            # circle_counts[i] = np.sum(mask)*mass_per_point/(np.pi*(ring_radii[i]- threshold)**2) #!!!
-            circle_counts[i] = np.sum(
-                mask)*mass_per_point/(np.pi*(ring_radii[i])**2)  # !!!
+            sums = np.array([DeltalessR - DeltaR for DeltalessR,
+                            DeltaR in zip(circle_counts, ring_counts)])
 
-        sums = np.array([DeltalessR - DeltaR for DeltalessR,
-                        DeltaR in zip(circle_counts, ring_counts)])
+            DeltaSigmas = np.add(DeltaSigmas, np.array(sums))
 
-        DeltaSigmas = np.add(DeltaSigmas, np.array(sums))
+            # print('calculated area differences and added it in: ',
+            #       time.time() - time_area)
 
-        # print('calculated area differences and added it in: ',
-        #       time.time() - time_area)
+        t = time.time() - debug_start
+        print(
+            f"Finished calculating {s} sat after",
+            t,
+        )
+        # average Delta Sigma of all all lenses
+        avgDsigma = DeltaSigmas/len(lenses)
+        table = np.column_stack((ring_radii, avgDsigma[0]))
+        np.savetxt(f'{bin}_{scale}_rayleigh.txt', table,
+                   delimiter='\t', fmt='%f')  # save average delta sigma
 
-    t = time.time() - debug_start
-    print(
-        f"Finished calculating {s} sat after",
-        t,
-    )
-    avgDsigma = DeltaSigmas/len(lenses)  # average Delta Sigma of all all lenses
-    table = np.column_stack((ring_radii, avgDsigma[0]))
-    np.savetxt(f'{bin}_{scale}_rayleigh.txt', table,
-               delimiter='\t', fmt='%f')  # save average delta sigma
-
-    plt.plot(ring_radii, avgDsigma[0]/1e6,
-             color='black', linewidth=0.5, linestyle='--')
-    plt.show()
+        plt.plot(ring_radii, avgDsigma[0]/1e6,
+                 color='black', linewidth=0.5, linestyle='--')
+        plt.xlim(0, 2000)
+        plt.show()

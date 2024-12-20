@@ -21,7 +21,7 @@ Ra1, Dec1 = 239.8523343, 27.2168499  # Example values in degrees
 size = 10000
 
 # Generate random radial distances using Rayleigh distribution
-scale = 0.05  # Example scale in degrees, adjust as needed
+scale = 0.08  # Example scale in degrees, adjust as needed
 radii = np.random.rayleigh(scale, size=size)
 
 # Generate random angles uniformly between 0 and 2*pi
@@ -39,11 +39,11 @@ c2 = SkyCoord(ra=Ra1, dec=Dec1, frame='icrs', unit="deg")
 sep = c1.separation(c2)
 
 # Set an arbitrary redshift value (z)
-z = 0.09 # Example redshift, adjust as needed
+z = 0.09  # Example redshift, adjust as needed
 
 # Convert angular separation to physical distance in kpc using your custom cosmology model
 arcsec_per_kpc = cosmo.arcsec_per_kpc_proper(z)
-distance = distance=(sep.arcsecond/arcsec_per_kpc.value)
+distance = distance = (sep.arcsecond/arcsec_per_kpc.value)
 
 # Plot the 2D random distribution
 plt.figure(figsize=(6, 6))
