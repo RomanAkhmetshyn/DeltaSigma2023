@@ -132,66 +132,70 @@ cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)  # cosmology for Rykoff
 
 # bins = ['0609', '0306', '0103']
 # input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
-bins = ['0609']
+bins = ['0103']
 
 for bin in bins:
 
     if bin == '0609':
         lowlim = 0.6
         highlim = 0.9
-        scales = np.linspace(0.001, 0.05, 15)
+        scales = np.linspace(0.002, 0.01, 3)
     elif bin == '0306':
         lowlim = 0.3
         highlim = 0.6
-        scale = 0.01
+        scales = [0.001, 0.0015, 0.0025, 0.0035, 0.005, 0.007,
+                  0.009, 0.01, 0.013, 0.017, 0.021, 0.028, 0.033, 0.04]
     elif bin == '0103':
         lowlim = 0.1
         highlim = 0.3
-        scale = 0.002  # scale of rayleigh distr
-        scale = 0.02
+        # scale = 0.002  # scale of rayleigh distr
+        # scale = 0.02
+        scales = [0.001, 0.0015, 0.0025, 0.005, 0.007,
+                  0.009, 0.01, 0.013, 0.017, 0.025]
 
-    # RedMaPPer catalog -
-    lenses = Table.read("members_n_clusters_masked.fits")
-    # Combined by myself with host halo masses and redshifts - email me if you want it
-    dist_file = Table.read(f'{bin}_members_dists.fits')
-    cluster_file = Table.read(f'clusters_w_centers.fit')
-
-    # filter lenses that are in a distance bin. You can also filter by membership probability and redshift
-    data_mask = (
-        (lenses["R"] >= lowlim)
-        & (lenses["R"] < highlim)
-        # & (lenses["PMem"] > 0.8)
-        # & (lenses["zspec"] > -1)
-        & (lenses["PMem"] > 0.8)
-    )
-    lenses = lenses[data_mask]  # updated table of lenses
-    # interpolation resulotion, i.e. number of points for probability distribution func.
-    cdf_resolution = 1000
-    # arbitrary number, Mass/mpp = number of points for M-C
-    mass_per_point = 1098372.008822474*10000
-
-    # start_bin=0.01 * 1.429 #first ring lens-centric disatnce Mpc
-    start_bin = 0.002 * 1.429
-    # end_bin=1.5 * 1.429 #final ring lens-centric distance
-    end_bin = 2.5 * 1.429  # final ring lens-centric distance
-    ring_incr = 0.02 * 1.429  # distance between rings
-    ring_num = round((end_bin-start_bin)/ring_incr)  # number of rings
-    # Mpc*1000=kpc, radii of all rings in kps
-    ring_radii = np.linspace(start_bin, end_bin, ring_num+1) * 1000
-    # threshold=ring_incr/2*100 #the same small width for each ring.
-    threshold = ring_incr/4*100  # the same small width for each ring.
-    # threshold = 0.5
-
-    mdef = "200m"  # cosmological mass definition
-
-    # np array for all delta sigma measurments
-    DeltaSigmas = np.zeros((1, len(ring_radii)))
-    debug_start = time.time()  # timing the whole script
-
-    halo_dict = {}  # a dictionary for each host halo, so we don't calculate same thing repeatedly
-    # lenses = lenses[:500]
-    # dist_file = dist_file[:500]
     for scale in scales:
+        # RedMaPPer catalog -
+        lenses = Table.read("members_n_clusters_masked.fits")
+        # Combined by myself with host halo masses and redshifts - email me if you want it
+        dist_file = Table.read(f'{bin}_members_dists.fits')
+        cluster_file = Table.read(f'clusters_w_centers.fit')
+
+        # filter lenses that are in a distance bin. You can also filter by membership probability and redshift
+        data_mask = (
+            (lenses["R"] >= lowlim)
+            & (lenses["R"] < highlim)
+            # & (lenses["PMem"] > 0.8)
+            # & (lenses["zspec"] > -1)
+            & (lenses["PMem"] > 0.8)
+        )
+        lenses = lenses[data_mask]  # updated table of lenses
+        # interpolation resulotion, i.e. number of points for probability distribution func.
+        cdf_resolution = 1000
+        # arbitrary number, Mass/mpp = number of points for M-C
+        mass_per_point = 1098372.008822474*10000
+
+        # start_bin=0.01 * 1.429 #first ring lens-centric disatnce Mpc
+        start_bin = 0.002 * 1.429
+        # end_bin=1.5 * 1.429 #final ring lens-centric distance
+        end_bin = 2.5 * 1.429  # final ring lens-centric distance
+        ring_incr = 0.02 * 1.429  # distance between rings
+        ring_num = round((end_bin-start_bin)/ring_incr)  # number of rings
+        # Mpc*1000=kpc, radii of all rings in kps
+        ring_radii = np.linspace(start_bin, end_bin, ring_num+1) * 1000
+        # threshold=ring_incr/2*100 #the same small width for each ring.
+        threshold = ring_incr/4*100  # the same small width for each ring.
+        # threshold = 0.5
+
+        mdef = "200m"  # cosmological mass definition
+
+        # np array for all delta sigma measurments
+        DeltaSigmas = np.zeros((1, len(ring_radii)))
+        debug_start = time.time()  # timing the whole script
+
+        halo_dict = {}  # a dictionary for each host halo, so we don't calculate same thing repeatedly
+        # lenses = lenses[:500]
+        # dist_file = dist_file[:500]
+
         for s in trange(len(lenses)):  # iterate through each lens
             sat = lenses[s]
 
@@ -235,12 +239,14 @@ for bin in bins:
             Ra_sat = sat['RAJ2000']
             De_sat = sat['DEJ2000']
 
-            radii = np.random.rayleigh(scale, size=1)
+            radii = np.random.rayleigh(scale, size=1)  # p_radii
+            # a_radii
 
             # Generate random angles uniformly between 0 and 2*pi
             angles = np.random.uniform(0, 2 * np.pi, size=1)
 
             # Random RA values around BCG
+            # a_radii # divide by cosDec
             Ra_random = Ra0 + radii * np.cos(angles)
             # Random Dec values around BCG
             Dec_random = Dec0 + radii * np.sin(angles)
@@ -313,7 +319,7 @@ for bin in bins:
         avgDsigma = DeltaSigmas/len(lenses)
         table = np.column_stack((ring_radii, avgDsigma[0]))
         np.savetxt(f'{bin}_{scale}_rayleigh.txt', table,
-                   delimiter='\t', fmt='%f')  # save average delta sigma
+                   delimiter='\t', fmt='%f')
 
         plt.plot(ring_radii, avgDsigma[0]/1e6,
                  color='black', linewidth=0.5, linestyle='--')

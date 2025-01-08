@@ -13,7 +13,12 @@ import matplotlib as mpl
 from matplotlib.colors import to_rgba
 mpl.rcParams['figure.dpi'] = 300
 
-file_pattern = "0609_*_rayleigh.txt"
+
+old_model = 'C:/Users/romix/Documents/GitHub/DeltaSigma2023/MonteCarlo_offset_profile/new-test/0103_rayleigh.txt'
+
+old_profile = np.genfromtxt(old_model, usecols=(1))/1000000
+
+file_pattern = "0306_*_rayleigh.txt"
 files = sorted(glob.glob(file_pattern))  # Get all matching files
 
 scales = []  # To store scale values
@@ -33,13 +38,13 @@ scales = np.array(scales)
 models = np.array(models)  # Shape: (num_scales, num_points)
 
 
-target_scale = 0.045
+target_scale = 0.0005
 
 plt.figure(figsize=(10, 6))
 for i in range(len(files)):
     brightness = (i + 1) / len(files)  # Calculate brightness (0 to 1 scale)
     color = to_rgba('grey', alpha=brightness)  # Convert grey to a lighter shade
-    plt.plot(models[i], color=color, label=f'Scale {scales[i]:.6f}')
+    plt.plot(models[i]/1000000, color=color, label=f'Scale {scales[i]:.6f}')
 
 # Step 3: Customize and show the plot
 
@@ -54,6 +59,8 @@ for i in range(models.shape[1]):
         scales, models[:, i], kind='cubic', fill_value="extrapolate")
     interpolated_model[i] = interp_func(target_scale)
 
-plt.plot(interpolated_model, color='r')
+plt.plot(interpolated_model/1000000, color='r')
+
+# plt.plot(old_profile)
 
 plt.show()
