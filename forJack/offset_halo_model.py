@@ -132,19 +132,21 @@ cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)  # cosmology for Rykoff
 
 # bins = ['0609', '0306', '0103']
 # input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
-bins = ['0103']
+bins = ['0306']
 
 for bin in bins:
 
     if bin == '0609':
         lowlim = 0.6
         highlim = 0.9
-        scales = np.linspace(0.002, 0.01, 3)
+        scales = [0.05, 0.08, 0.1, 0.14, 0.16, 0.2, 0.24,
+                  0.26, 0.3, 0.34, 0.38, 0.42, 0.48, 0.52, 0.56, 0.6]
     elif bin == '0306':
         lowlim = 0.3
         highlim = 0.6
         scales = [0.001, 0.0015, 0.0025, 0.0035, 0.005, 0.007,
                   0.009, 0.01, 0.013, 0.017, 0.021, 0.028, 0.033, 0.04]
+        scales = [0.32]
     elif bin == '0103':
         lowlim = 0.1
         highlim = 0.3
@@ -152,6 +154,7 @@ for bin in bins:
         # scale = 0.02
         scales = [0.001, 0.0015, 0.0025, 0.005, 0.007,
                   0.009, 0.01, 0.013, 0.017, 0.025]
+        scales = [0.22]
 
     for scale in scales:
         # RedMaPPer catalog -
@@ -193,8 +196,8 @@ for bin in bins:
         debug_start = time.time()  # timing the whole script
 
         halo_dict = {}  # a dictionary for each host halo, so we don't calculate same thing repeatedly
-        # lenses = lenses[:500]
-        # dist_file = dist_file[:500]
+        # lenses = lenses[:2000]
+        # dist_file = dist_file[:2000]
 
         for s in trange(len(lenses)):  # iterate through each lens
             sat = lenses[s]
@@ -238,8 +241,14 @@ for bin in bins:
             # get current satellite coords
             Ra_sat = sat['RAJ2000']
             De_sat = sat['DEJ2000']
+            arcsec_per_kpc = cosmo_dist.arcsec_per_kpc_proper(sat['Z_halo'])
 
-            radii = np.random.rayleigh(scale, size=1)  # p_radii
+            # radii = np.random.rayleigh(scale, size=1)  # p_radii
+
+            Ryk_dist = dist_file[s]['R0'] * 1000 * 1.429
+            radii = np.random.rayleigh(scale, size=1)*Ryk_dist
+            radii = np.random.rayleigh(scale * 1000, size=1)
+            radii = radii * arcsec_per_kpc.value / 3600  # arcsec to deg
             # a_radii
 
             # Generate random angles uniformly between 0 and 2*pi
@@ -247,23 +256,27 @@ for bin in bins:
 
             # Random RA values around BCG
             # a_radii # divide by cosDec
-            Ra_random = Ra0 + radii * np.cos(angles)
-            # Random Dec values around BCG
+            Ra_random = Ra0 + (radii * np.cos(angles)) / \
+                np.cos(np.deg2rad(Dec0))
+            # # Random Dec values around BCG
             Dec_random = Dec0 + radii * np.sin(angles)
 
-            # Create SkyCoord objects for coordinates of cluster center and satellite galaxy
+            # # Create SkyCoord objects for coordinates of cluster center and satellite galaxy
             center = SkyCoord(ra=Ra_random, dec=Dec_random,
                               frame='icrs', unit="deg")
             satellite = SkyCoord(ra=Ra_sat, dec=De_sat,
                                  frame='icrs', unit="deg")
 
-            # Calculate the angular separation in arcseconds
+            # # Calculate the angular separation in arcseconds
             sep = center.separation(satellite)
 
-            # Convert angular separation to physical distance in kpc using RedMapper cosmology
-            arcsec_per_kpc = cosmo_dist.arcsec_per_kpc_proper(sat['Z_halo'])
+            # # Convert angular separation to physical distance in kpc using RedMapper cosmology
+
             sat_x = (sep.arcsecond/arcsec_per_kpc.value) * \
                 1.429  # distance in our cosmology
+
+            sat_x = np.sqrt(Ryk_dist**2-radii**2-2 *
+                            Ryk_dist*radii*np.cos(angles))
 
             # sat_x = dist_file[s]['R0'] * 1000 * 1.429 #Mpc*1000 convert coords to kpc
             # sat_x = sat['R'] * 1000 * 1.429 #Mpc*1000 convert coords to kp
@@ -318,7 +331,7 @@ for bin in bins:
         # average Delta Sigma of all all lenses
         avgDsigma = DeltaSigmas/len(lenses)
         table = np.column_stack((ring_radii, avgDsigma[0]))
-        np.savetxt(f'{bin}_{scale}_rayleigh.txt', table,
+        np.savetxt(f'{bin}_{scale}_rayleigh(2).txt', table,
                    delimiter='\t', fmt='%f')
 
         plt.plot(ring_radii, avgDsigma[0]/1e6,
