@@ -22,10 +22,10 @@ cosmology.addCosmology("737", params)
 cosmo = cosmology.setCosmology("737")
 
 
-def subhalo_profile(r, mass, A, scale, M_stellar, avg_z, show=False):
-
+def subhalo_profile(r, mass, A, B, M_stellar, avg_z, bin):
+    profile_path = 'C:/Users/romix/Documents/GitHub/DeltaSigma2023/MonteCarlo_offset_profile/new-test'
+    tau = 100
     mass = math.pow(10, mass)
-
     concentration_model = "duffy08"
     c = concentration.concentration(
         M=mass, mdef="200m", z=avg_z, model=concentration_model
@@ -33,39 +33,32 @@ def subhalo_profile(r, mass, A, scale, M_stellar, avg_z, show=False):
     # c=4.67*(mass/math.pow(10, 14))**(-0.11)
 
     eta = 2
-    tnfw = TNFW(mass, c, avg_z, 100, eta, cosmo=astropy_cosmo)
+    tnfw = TNFW(mass, c, avg_z, tau, eta, cosmo=astropy_cosmo)
 
     stellarSigma = M_stellar / (np.pi * r**2) / 1000000 / 1000000
+    # R = np.linspace(0.01, 1.5, 75)
+    dSigma = np.squeeze(tnfw.projected_excess(r)) / 1000000
 
-    interpolated_model = np.zeros_like(models[0])
-    for i in range(models.shape[1]):
-        interp_func = interp1d(
-            scales, models[:, i], kind='cubic', fill_value="extrapolate")
-        interpolated_model[i] = interp_func(scale)
+    # dSigma=nfw.projected_excess(R)
 
-    halo_r = np.genfromtxt(
-        files[0], delimiter='\t', usecols=(0), dtype=float)
+    halo_table1 = np.genfromtxt(
+        profile_path + f'/{bin}_(200m)_ext(R0).txt', delimiter='\t', usecols=(0, 1), dtype=float)
+    halo_table2 = np.genfromtxt(
+        profile_path + f'/{bin}_(200m)_ext(R1).txt', delimiter='\t', usecols=(0, 1), dtype=float)
 
-    halo_r = halo_r / 1000
+    halo_r = halo_table1[:, 0] / 1000
 
-    halo_ds = interpolated_model
-    # halo2_ds=halo_table2[:,1]
+    halo1_ds = halo_table1[:, 1]
+    halo2_ds = halo_table2[:, 1]
 
-    # halo_ds = A*halo1_ds
+    halo_ds = A * halo1_ds + B * halo2_ds
 
     f = interp1d(halo_r, halo_ds, kind='cubic')
-    halo_dSigma = f(r) * A
+    halo_dSigma = f(r)
 
-    sat_term = np.squeeze(tnfw.projected_excess(r)) / 1000000 / 1000000
-
-    summed_halo = np.add(halo_dSigma, sat_term)
+    summed_halo = np.add(dSigma, halo_dSigma) / 1000000
 
     summed_halo = np.add(summed_halo, stellarSigma)
-
-    if show:
-        stellarSigma = M_stellar / (np.pi * halo_r**2) / 1000000 / 1000000
-        sat_term = np.squeeze(tnfw.projected_excess(halo_r)) / 1000000 / 1000000
-        return halo_r, halo_ds * A, stellarSigma, sat_term
 
     return summed_halo
 
@@ -128,8 +121,7 @@ stellar = [np.power(10, 10.94),
 avg_z = [0.3479985,
          0.3122,
          0.229]
-# index = '_rayleigh'
-index = '_rayleigh200m'
+index = '_R0R1(200m)'
 
 for i, bin in enumerate(bins):
     lowlim = bin[0] + '.' + bin[1]
@@ -142,7 +134,7 @@ for i, bin in enumerate(bins):
     scales = []  # To store scale values
     models = []  # To store the second column of data
 
-    file_pattern = f"{bin}_*{index}.txt"
+    file_pattern = f"{bin}_*_rayleigh.txt"
     files = natsorted(glob.glob(file_pattern))
 
     for file in files:
@@ -192,7 +184,7 @@ for i, bin in enumerate(bins):
         ds_err = ds_err[1:]
 
     halo = np.genfromtxt(f'./results/{bin}_halo{index}.txt')
-    # halo2 = np.genfromtxt(f'{bin}_halo2{index}.txt')
+    halo2 = np.genfromtxt(f'./results/{bin}_halo2{index}.txt')
     sub = np.genfromtxt(f'./results/{bin}_sub{index}.txt')
     star = np.genfromtxt(f'./results/{bin}_star{index}.txt')
     R = np.genfromtxt(f'./results/R{index}.txt')
@@ -210,10 +202,12 @@ for i, bin in enumerate(bins):
                  linestyle='--', c='blue', linewidth=2)
     ax_main.plot(R, halo, label='offset halo 1 signal',
                  linestyle='-.', c='green', linewidth=2)
+    ax_main.plot(R, halo2, label='offset halo 2 signal',
+                 linestyle='-.', c='purple', linewidth=2)
     # ax_main.plot(R, halo2, label='offset halo 2 signal', linestyle='-.', c='lime', linewidth=2)
     ax_main.plot(R, star, label='stellar signal',
                  linestyle=':', c='orange', linewidth=2)
-    ax_main.plot(R, star + halo + sub,
+    ax_main.plot(R, star + halo + sub + halo2,
                  label='combined profile', linewidth=2, c='red', zorder=6)
     # ax_main.plot(R, star + halo + sub + halo2, label='combined profile', linewidth=2, c='red')
     # ax_main.errorbar(df['rp'], df['ds'], df['ds_err'], fmt='.', capsize=4, ecolor='k',
@@ -221,36 +215,12 @@ for i, bin in enumerate(bins):
     ax_main.errorbar(rp, ds, ds_err, fmt='.', label='observed lensing signal', capsize=4, ecolor='k',
                      markerfacecolor='none', markeredgecolor='k', markeredgewidth=2, zorder=8)
 
-    lower_curve = sum(subhalo_profile(
-        df['rp'], *lower_bounds, stellar[i], show=True, avg_z=avg_z[i])[1:])
-    upper_curve = sum(subhalo_profile(
-        df['rp'], *upper_bounds, stellar[i], show=True, avg_z=avg_z[i])[1:])
+    lower_curve = subhalo_profile(
+        R, *lower_bounds, stellar[i], avg_z=avg_z[i], bin=bin)
+    upper_curve = subhalo_profile(
+        R, *upper_bounds, stellar[i], avg_z=avg_z[i], bin=bin)
 
     ax_main.fill_between(R, lower_curve, upper_curve, color='red', alpha=0.2)
-    # ax_main.set_facecolor('#FBFEF9')         # Background color of the plot area
-    # mass, A, scale = [12.527, 1.525, 393.934]
-
-    # Generate the curve using the subhalo_profile function
-    # R, s_halo, s_stellar, s_sathalo = subhalo_profile(
-    #     df['rp'], mass, A, scale, stellar[i], show=True, avg_z=avg_z[i])
-
-    # Plot the random curve with faint red color
-    # ax_main.plot(R, s_halo+s_stellar+s_sathalo,
-    #              color='red', alpha=0.5, linewidth=0.8)
-
-    # print(chisquare(ds, subhalo_profile(
-    #     df['rp'], mass, A, scale, stellar[i], show=False, avg_z=avg_z[i]), cov)/len(ds))
-
-    # for idx in random_indices:
-    #     mass, A, scale = samples[idx]
-
-    #     # Generate the curve using the subhalo_profile function
-    #     R, s_halo, s_stellar, s_sathalo = subhalo_profile(
-    #         df['rp'], mass, A, scale, stellar[i], show=True, avg_z=avg_z[i])
-
-    #     # Plot the random curve with faint red color
-    #     ax_main.plot(R, s_halo+s_stellar+s_sathalo,
-    #                  color='red', alpha=0.05, linewidth=0.8)
 
     # ax_main.grid()
     ax_main.set_ylim(-8, 70)
@@ -276,7 +246,7 @@ for i, bin in enumerate(bins):
     ax_residuals.tick_params(axis='y', labelsize=16)
     # ax_residuals.set_facecolor('#FBFEF9')
     if i == len(bins) - 1:
-        ax_residuals.set_xlabel(r'$R [\mathrm{Mpc}]$', fontsize=20)
+        ax_residuals.set_xlabel(r'$R (\mathrm{Mpc})$', fontsize=20)
 
     ax_main.spines['top'].set_linewidth(1.5)
     ax_main.spines['bottom'].set_linewidth(1.5)

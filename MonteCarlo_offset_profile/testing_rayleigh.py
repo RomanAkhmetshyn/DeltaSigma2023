@@ -28,7 +28,8 @@ size = 10000
 z = 0.09296000000000001  # redshift
 arcsec_per_kpc = cosmo.arcsec_per_kpc_proper(z)
 
-scale = 0.32*1000  # sigma
+# scale = 0.4*1000*1.429
+scale = 147  # sigma
 # radii_angular = rayleigh.rvs(scale, size=size)
 radii = np.random.rayleigh(scale, size=size)*1  # kps
 
@@ -78,17 +79,19 @@ sep = c1.separation(c2)
 # distance2 = sep.arcsecond/arcsec_per_kpc.value
 distance2 = 1080
 
-radii = np.random.rayleigh(scale, size=size)  # kps
+radii = np.random.rayleigh(scale*2.4, size=size)  # kps
 
-# plt.hist(radii, bins=100)
-# plt.vlines(distance2, 0, 700, color='r', label='Rykoff dist')
-# plt.show()
+plt.hist(radii, bins=100)
+# plt.yscale('log')
+plt.vlines(distance2, 0, 700, color='r', label='Rykoff dist')
+plt.show()
 distance = np.sqrt(distance2**2-radii**2-2*distance2*radii*np.cos(angles))
+distance_ang = np.sqrt(distance2**2+radii**2-2*distance2*radii*np.cos(angles))
 
 # Plot a histogram of the distances in kpc
 plt.figure(figsize=(8, 6))
-plt.hist(distance, bins=100, alpha=0.7, color='b')
-plt.hist(distance_ang, bins=100, alpha=0.7, color='b')
+plt.hist(distance, bins=100, alpha=1, color='b')
+plt.hist(distance_ang, bins=100, alpha=0.7, color='purple')
 plt.vlines(distance2, 0, 700, color='r', label='Rykoff dist')
 plt.title(f'Histogram of Distances to satellite')
 plt.xlabel('Distance (kpc)')

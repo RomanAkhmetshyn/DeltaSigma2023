@@ -6,6 +6,7 @@ Created on Thu Dec 19 22:34:16 2024
 """
 
 import glob
+from natsort import natsorted
 from scipy.interpolate import interp1d
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,12 +15,13 @@ from matplotlib.colors import to_rgba
 mpl.rcParams['figure.dpi'] = 300
 
 
-old_model = 'C:/Users/romix/Documents/GitHub/DeltaSigma2023/MonteCarlo_offset_profile/new-test/0103_rayleigh.txt'
+old_model = 'C:/Users/romix/Documents/GitHub/DeltaSigma2023/forJack/0609_428.7_rayleigh-skew.txt'
 
 old_profile = np.genfromtxt(old_model, usecols=(1))/1000000
 
-file_pattern = "0306_*_rayleigh.txt"
-files = sorted(glob.glob(file_pattern))  # Get all matching files
+file_pattern = "0609_*_rayleigh.txt"
+# Get all matching files
+files = natsorted(glob.glob(file_pattern))
 
 scales = []  # To store scale values
 models = []  # To store the second column of data
@@ -38,13 +40,16 @@ scales = np.array(scales)
 models = np.array(models)  # Shape: (num_scales, num_points)
 
 
-target_scale = 0.0005
+target_scale = 400
 
 plt.figure(figsize=(10, 6))
 for i in range(len(files)):
     brightness = (i + 1) / len(files)  # Calculate brightness (0 to 1 scale)
     color = to_rgba('grey', alpha=brightness)  # Convert grey to a lighter shade
     plt.plot(models[i]/1000000, color=color, label=f'Scale {scales[i]:.6f}')
+    plt.xlim(0, 120)
+    plt.ylim(-40, 40)
+    # plt.show()
 
 # Step 3: Customize and show the plot
 
@@ -61,6 +66,6 @@ for i in range(models.shape[1]):
 
 plt.plot(interpolated_model/1000000, color='r')
 
-# plt.plot(old_profile)
+# plt.plot(old_profile/3)
 
 plt.show()

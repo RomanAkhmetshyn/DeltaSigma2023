@@ -66,7 +66,7 @@ def random_points(halo_mass,
     # CDF - cumulative distribution function
     #
     interp_radii = np.linspace(
-        0, virial_radius*4, cdf_resolution)  # distance for cdf
+        0, virial_radius * 4, cdf_resolution)  # distance for cdf
 
     # Temporarily ignore division by zero and overflow warnings
     with np.errstate(divide="ignore", over="ignore"):
@@ -79,9 +79,9 @@ def random_points(halo_mass,
     if trapz_mode:
         interp_surface_densities[0] = 0.0
         cdf = cumulative_trapezoid(
-            2*np.pi*interp_radii*interp_surface_densities, interp_radii, initial=0)
+            2 * np.pi * interp_radii * interp_surface_densities, interp_radii, initial=0)
         inverse_cdf = interp1d(
-            cdf/cdf[-1], interp_radii, bounds_error=False, fill_value="extrapolate")
+            cdf / cdf[-1], interp_radii, bounds_error=False, fill_value="extrapolate")
         n_points = round(cdf[-1] / (mass_per_point))
         random_values = np.random.rand(n_points)
         random_radii = inverse_cdf(random_values)
@@ -132,33 +132,45 @@ cosmo_dist = FlatLambdaCDM(H0=100, Om0=0.3, Ob0=0.049)  # cosmology for Rykoff
 
 # bins = ['0609', '0306', '0103']
 # input distance bin, i.e. distance of lens galaxy from cluster center in Mpc
-bins = ['0306']
+bins = ['0609']
 
 for bin in bins:
 
     if bin == '0609':
         lowlim = 0.6
         highlim = 0.9
-        scales = [0.05, 0.08, 0.1, 0.14, 0.16, 0.2, 0.24,
-                  0.26, 0.3, 0.34, 0.38, 0.42, 0.48, 0.52, 0.56, 0.6]
+        # scales = [0.05, 0.08, 0.1, 0.14, 0.16, 0.2, 0.24,
+        #           0.26, 0.3, 0.34, 0.38, 0.42, 0.48, 0.52, 0.56, 0.6]
+
+        # scales = np.array([0.05, 0.08, 0.1, 0.12, 0.15,
+        #                   0.18, 0.23, 0.28, 0.35]) * 1000 * 1.429
+        scales = np.array([28.58, 71.45, 114.32, 142.9, 171.48,
+                          214.35, 257.22, 285.80, 328.67,
+                          385.83, 400.12, 414.41, 457.28, 500.15])
     elif bin == '0306':
         lowlim = 0.3
         highlim = 0.6
         scales = [0.001, 0.0015, 0.0025, 0.0035, 0.005, 0.007,
                   0.009, 0.01, 0.013, 0.017, 0.021, 0.028, 0.033, 0.04]
-        scales = [0.32]
+        # scales = np.array([0.05, 0.08, 0.1, 0.15, 0.18, 0.23]) * 1000 * 1.429
+        scales = np.array([71.45, 114.32, 128.61, 142.90, 171.48,
+                          185.77, 214.35, 257.22, 328.67, 428.7, 571.60])
     elif bin == '0103':
         lowlim = 0.1
         highlim = 0.3
         # scale = 0.002  # scale of rayleigh distr
         # scale = 0.02
-        scales = [0.001, 0.0015, 0.0025, 0.005, 0.007,
-                  0.009, 0.01, 0.013, 0.017, 0.025]
-        scales = [0.22]
+        # scales = [0.001, 0.0015, 0.0025, 0.005, 0.007,
+        #           0.009, 0.01, 0.013, 0.017, 0.025]
+        # scales = [0.22]
+        # scales = np.array([0.01, 0.03, 0.05, 0.1, 0.15, 0.2]) * 1000 * 1.429
+        scales = np.array([14.29, 42.87, 71.45, 85.74, 100.03,
+                          114.32, 142.90, 214.35, 285.80])
+        # scales = np.array([0.05, 0.0])
 
     for scale in scales:
         # RedMaPPer catalog -
-        lenses = Table.read("members_n_clusters_masked.fits")
+        lenses = Table.read("members_n_clusters_200m.fits")
         # Combined by myself with host halo masses and redshifts - email me if you want it
         dist_file = Table.read(f'{bin}_members_dists.fits')
         cluster_file = Table.read(f'clusters_w_centers.fit')
@@ -168,25 +180,25 @@ for bin in bins:
             (lenses["R"] >= lowlim)
             & (lenses["R"] < highlim)
             # & (lenses["PMem"] > 0.8)
-            # & (lenses["zspec"] > -1)
+ # & (lenses["zspec"] > -1)
             & (lenses["PMem"] > 0.8)
         )
         lenses = lenses[data_mask]  # updated table of lenses
         # interpolation resulotion, i.e. number of points for probability distribution func.
         cdf_resolution = 1000
         # arbitrary number, Mass/mpp = number of points for M-C
-        mass_per_point = 1098372.008822474*10000
+        mass_per_point = 1098372.008822474 * 10000
 
         # start_bin=0.01 * 1.429 #first ring lens-centric disatnce Mpc
         start_bin = 0.002 * 1.429
         # end_bin=1.5 * 1.429 #final ring lens-centric distance
         end_bin = 2.5 * 1.429  # final ring lens-centric distance
         ring_incr = 0.02 * 1.429  # distance between rings
-        ring_num = round((end_bin-start_bin)/ring_incr)  # number of rings
+        ring_num = round((end_bin - start_bin) / ring_incr)  # number of rings
         # Mpc*1000=kpc, radii of all rings in kps
-        ring_radii = np.linspace(start_bin, end_bin, ring_num+1) * 1000
+        ring_radii = np.linspace(start_bin, end_bin, ring_num + 1) * 1000
         # threshold=ring_incr/2*100 #the same small width for each ring.
-        threshold = ring_incr/4*100  # the same small width for each ring.
+        threshold = ring_incr / 4 * 100  # the same small width for each ring.
         # threshold = 0.5
 
         mdef = "200m"  # cosmological mass definition
@@ -241,14 +253,14 @@ for bin in bins:
             # get current satellite coords
             Ra_sat = sat['RAJ2000']
             De_sat = sat['DEJ2000']
-            arcsec_per_kpc = cosmo_dist.arcsec_per_kpc_proper(sat['Z_halo'])
+            # arcsec_per_kpc = cosmo_dist.arcsec_per_kpc_proper(sat['Z_halo'])
 
             # radii = np.random.rayleigh(scale, size=1)  # p_radii
 
             Ryk_dist = dist_file[s]['R0'] * 1000 * 1.429
-            radii = np.random.rayleigh(scale, size=1)*Ryk_dist
-            radii = np.random.rayleigh(scale * 1000, size=1)
-            radii = radii * arcsec_per_kpc.value / 3600  # arcsec to deg
+            radii = np.random.rayleigh(scale, size=1)
+            # radii = np.random.rayleigh(scale * 1000, size=1)
+            # radii = radii * arcsec_per_kpc.value / 3600  # arcsec to deg
             # a_radii
 
             # Generate random angles uniformly between 0 and 2*pi
@@ -256,27 +268,26 @@ for bin in bins:
 
             # Random RA values around BCG
             # a_radii # divide by cosDec
-            Ra_random = Ra0 + (radii * np.cos(angles)) / \
-                np.cos(np.deg2rad(Dec0))
-            # # Random Dec values around BCG
-            Dec_random = Dec0 + radii * np.sin(angles)
+            # Ra_random = Ra0 + (radii * np.cos(angles)) / \
+            #     np.cos(np.deg2rad(Dec0))
+            # # # Random Dec values around BCG
+            # Dec_random = Dec0 + radii * np.sin(angles)
 
-            # # Create SkyCoord objects for coordinates of cluster center and satellite galaxy
-            center = SkyCoord(ra=Ra_random, dec=Dec_random,
-                              frame='icrs', unit="deg")
-            satellite = SkyCoord(ra=Ra_sat, dec=De_sat,
-                                 frame='icrs', unit="deg")
+            # # # Create SkyCoord objects for coordinates of cluster center and satellite galaxy
+            # center = SkyCoord(ra=Ra_random, dec=Dec_random,
+            #                   frame='icrs', unit="deg")
+            # satellite = SkyCoord(ra=Ra_sat, dec=De_sat,
+            #                      frame='icrs', unit="deg")
 
-            # # Calculate the angular separation in arcseconds
-            sep = center.separation(satellite)
+            # # # Calculate the angular separation in arcseconds
+            # sep = center.separation(satellite)
 
             # # Convert angular separation to physical distance in kpc using RedMapper cosmology
 
-            sat_x = (sep.arcsecond/arcsec_per_kpc.value) * \
-                1.429  # distance in our cosmology
+            # sat_x = (sep.arcsecond/arcsec_per_kpc.value) * \
+            #     1.429  # distance in our cosmology
 
-            sat_x = np.sqrt(Ryk_dist**2-radii**2-2 *
-                            Ryk_dist*radii*np.cos(angles))
+            sat_x = np.sqrt(Ryk_dist**2 + radii**2 - 2 * Ryk_di st * radii * np.cos(angles))
 
             # sat_x = dist_file[s]['R0'] * 1000 * 1.429 #Mpc*1000 convert coords to kpc
             # sat_x = sat['R'] * 1000 * 1.429 #Mpc*1000 convert coords to kp
@@ -286,7 +297,7 @@ for bin in bins:
 
             # time_area = time.time()
 
-            S = [np.pi*((r+threshold)**2-(r-threshold)**2)
+            S = [np.pi * ((r + threshold)**2 - (r - threshold)**2)
                  for r in ring_radii]  # area of rings
             # Calculate the distances for all random points at once
             distances = np.sqrt((random_radii_x - sat_x)**2 +
@@ -304,16 +315,16 @@ for bin in bins:
                                       distances <= ring_radii[i] + threshold)  # mask points that are within ring
 
                 # get surface density in rings
-                ring_counts[i] = np.sum(mask)*mass_per_point/S[i]
+                ring_counts[i] = np.sum(mask) * mass_per_point / S[i]
 
             for i in range(len(ring_radii)):  # the same but iterate each circle
                 # mask = np.logical_and(0 <= distances, distances <= ring_radii[i] - threshold) #!!!
                 mask = np.logical_and(
-                    0 <= distances, distances <= ring_radii[i])  # !!!
+                    0 <= distances, distances <= ring_radii[i])
 
                 # circle_counts[i] = np.sum(mask)*mass_per_point/(np.pi*(ring_radii[i]- threshold)**2) #!!!
                 circle_counts[i] = np.sum(
-                    mask)*mass_per_point/(np.pi*(ring_radii[i])**2)  # !!!
+                    mask) * mass_per_point / (np.pi * (ring_radii[i])**2)
 
             sums = np.array([DeltalessR - DeltaR for DeltalessR,
                             DeltaR in zip(circle_counts, ring_counts)])
@@ -329,12 +340,12 @@ for bin in bins:
             t,
         )
         # average Delta Sigma of all all lenses
-        avgDsigma = DeltaSigmas/len(lenses)
+        avgDsigma = DeltaSigmas / len(lenses)
         table = np.column_stack((ring_radii, avgDsigma[0]))
-        np.savetxt(f'{bin}_{scale}_rayleigh(2).txt', table,
+        np.savetxt(f'{bin}_{scale:.2f}_common.txt', table,
                    delimiter='\t', fmt='%f')
 
-        plt.plot(ring_radii, avgDsigma[0]/1e6,
+        plt.plot(ring_radii, avgDsigma[0] / 1e6,
                  color='black', linewidth=0.5, linestyle='--')
         plt.xlim(0, 2000)
         plt.show()
